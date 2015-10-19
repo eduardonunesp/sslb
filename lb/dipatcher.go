@@ -19,8 +19,11 @@ func getRequest(address string) WorkRequest {
 	return NewWorkerRequest(http.StatusOK, []byte(body))
 }
 
-func DispatchRequest(address string, r *http.Request, chanReceiver WorkRequestChan) {
+func DispatchRequest(backend *Backend, r *http.Request, chanReceiver WorkRequestChan) {
 	if r.Method == "GET" {
-		chanReceiver <- getRequest(address)
+		backend.Mutex.Lock()
+		backend.Score += 1
+		backend.Mutex.Unlock()
+		chanReceiver <- getRequest(backend.Address)
 	}
 }

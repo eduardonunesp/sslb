@@ -3,6 +3,7 @@ package lb
 import (
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"runtime"
 	"time"
@@ -13,15 +14,60 @@ var (
 	errInvalidRequest = errors.New("Invalid request")
 )
 
-func Run() {
-	runtime.GOMAXPROCS(1)
+type Processor struct {
+	Frontends Frontends
+}
 
-	host := "localhost"
-	port := 9000
+func NewProcessor() *Processor {
+	runtime.GOMAXPROCS(1)
+	return &Processor{}
+}
+
+func (p *Processor) Status() {
+	go func() {
+		for {
+			log.Println("--------- Status ---------")
+			for _, frontend := range p.Frontends {
+				log.Println("%T", frontend)
+				for _, backend := range frontend.Backends {
+					log.Println("%T", backend)
+				}
+			}
+
+			time.Sleep(time.Second * 5)
+		}
+	}()
+}
+
+func (p *Processor) checkIfExists(route string) bool {
+	exists := false
+	for _, frontend := range p.Frontends {
+		if frontend.Route == route {
+			exists = true
+		}
+	}
+
+	return exists
+}
+
+func (p *Processor) AddFrontend(frontend *Frontend) {
+	if !p.checkIfExists(frontend.Route) {
+		log.Println("Route added", frontend.Route)
+		p.Frontends = append(p.Frontends, frontend)
+	} else {
+		log.Println("Route already exists for", frontend.Route)
+	}
+}
+
+func (p *Processor) RunFrontendProcessor(frontend *Frontend) {
+	host := frontend.Host
+	port := frontend.Port
 	address := fmt.Sprintf("%s:%d", host, port)
 
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		chanResponse := WorkerRun(r)
+	log.Println("Run frontend processor at", address)
+
+	http.HandleFunc(frontend.Route, func(w http.ResponseWriter, r *http.Request) {
+		chanResponse := WorkerRun(r, frontend)
 		defer close(chanResponse)
 
 		ticker := time.NewTicker(5 * time.Second)
@@ -42,4 +88,11 @@ func Run() {
 	})
 
 	http.ListenAndServe(address, nil)
+}
+
+func (p *Processor) Run(processor *Processor) {
+	p.Status()
+	for _, frontend := range p.Frontends {
+		p.RunFrontendProcessor(frontend)
+	}
 }
