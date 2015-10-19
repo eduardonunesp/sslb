@@ -64,18 +64,22 @@ func (p *Processor) RunFrontendProcessor(frontend *Frontend) {
 	port := frontend.Port
 	address := fmt.Sprintf("%s:%d", host, port)
 
+	for _, backend := range frontend.Backends {
+		backend.HeartCheck()
+	}
+
 	log.Println("Run frontend processor at", address)
 
 	http.HandleFunc(frontend.Route, func(w http.ResponseWriter, r *http.Request) {
 		chanResponse := WorkerRun(r, frontend)
 		defer close(chanResponse)
 
-		ticker := time.NewTicker(5 * time.Second)
+		ticker := time.NewTicker(frontend.Timeout)
 		defer ticker.Stop()
 
 		select {
 		case result := <-chanResponse:
-			if result.Status > 400 {
+			if result.Status >= 400 {
 				http.Error(w, string(result.Body), result.Status)
 			} else {
 				w.WriteHeader(result.Status)
