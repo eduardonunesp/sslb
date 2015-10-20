@@ -1,13 +1,15 @@
 {
     "general": {
-        "workerPoolSize": 10,
+        "maxProcs": 4
     },
     "frontends" : [{
+        "name" : "Front1",
         "host" : "127.0.0.1",
         "port" : 9000,
         "route" : "/",
         "timeout" : 5000,
-        "add-x-forwarded-for" : true
+        "workerPoolSize": 10,
+        "dispatcherPoolSize": 10,
         "backends" : [{
             "name" : "Back1",
             "address" : "http://127.0.0.1:9001",

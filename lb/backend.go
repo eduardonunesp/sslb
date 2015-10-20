@@ -14,6 +14,7 @@ var (
 
 //TODO: Need to rebalance the score when backend back to active
 
+// Backend structure
 type Backend struct {
 	Mutex sync.Mutex
 
@@ -22,16 +23,16 @@ type Backend struct {
 	Heartbeat string
 
 	// Consider inactive after max inactiveAfter
-	InactiveAfter uint
+	InactiveAfter int
 
-	HeartbeatTime time.Duration
-	RetryTime     time.Duration
+	HeartbeatTime time.Duration // Heartbeat time if health
+	RetryTime     time.Duration // Retry to time after failed
 
 	// The last request failed
 	Failed bool
 	Active bool
-	Tries  uint
-	Score  uint
+	Tries  int
+	Score  int
 }
 
 type Backends []*Backend
@@ -42,15 +43,16 @@ func (a ByScore) Len() int           { return len(a) }
 func (a ByScore) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a ByScore) Less(i, j int) bool { return a[i].Score < a[j].Score }
 
-func NewBackend(name string, address string) *Backend {
+func NewBackend(name string, address string, heartbeat string,
+	inactiveAfter, heartbeatTime, retryTime int) *Backend {
 	return &Backend{
 		Name:      name,
 		Address:   address,
 		Heartbeat: address,
 
-		InactiveAfter: 3,
-		HeartbeatTime: time.Millisecond * 1000 * 5,
-		RetryTime:     time.Millisecond * 1000 * 5,
+		InactiveAfter: inactiveAfter,
+		HeartbeatTime: time.Duration(heartbeatTime) * time.Millisecond,
+		RetryTime:     time.Duration(retryTime) * time.Millisecond,
 
 		Failed: true,
 		Active: true,
@@ -59,17 +61,20 @@ func NewBackend(name string, address string) *Backend {
 	}
 }
 
+// Monitoring the backend, can add or remove if heartbeat fail
 func (b *Backend) HeartCheck() {
 	go func() {
 		for {
 			resp, err := http.Head(b.Heartbeat)
 			if err != nil {
+				// Max tries before consider inactive
 				if b.Tries >= b.InactiveAfter {
 					log.Printf("Backend inactive [%s]", b.Name)
 					b.Mutex.Lock()
 					b.Active = false
 					b.Mutex.Unlock()
 				} else {
+					// Ok that guy it's out of the game
 					b.Mutex.Lock()
 					b.Failed = true
 					b.Tries += 1
@@ -83,6 +88,7 @@ func (b *Backend) HeartCheck() {
 					log.Printf("Backend active [%s]", b.Name)
 				}
 
+				// Ok, let's keep working boys
 				b.Mutex.Lock()
 				b.Failed = false
 				b.Active = true

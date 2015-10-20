@@ -27,6 +27,7 @@ func NewServer(procs int) *Server {
 	return &Server{}
 }
 
+// Some previous checkings before run
 func (s *Server) preChecksBeforeAdd(newFrontend *Frontend) error {
 	for _, frontend := range s.Frontends {
 		if frontend.Route == newFrontend.Route {
@@ -54,6 +55,7 @@ func (s *Server) AddFrontend(frontend *Frontend) {
 	s.Frontends = append(s.Frontends, frontend)
 }
 
+// Lets run the frontned
 func (s *Server) RunFrontendServer(frontend *Frontend) {
 	if len(frontend.Backends) == 0 {
 		log.Fatal(errNoBackend.Error())
@@ -64,14 +66,17 @@ func (s *Server) RunFrontendServer(frontend *Frontend) {
 	address := fmt.Sprintf("%s:%d", host, port)
 
 	for _, backend := range frontend.Backends {
+		// Before start the backend let's set a monitor
 		backend.HeartCheck()
 	}
 
 	log.Printf("Run frontend server [%s] at [%s]", frontend.Name, address)
 
+	// Prepare the mux
 	httpHandle := http.NewServeMux()
 
 	httpHandle.HandleFunc(frontend.Route, func(w http.ResponseWriter, r *http.Request) {
+		// On a serious problem
 		defer func() {
 			if rec := recover(); rec != nil {
 				log.Println("Err", rec)
@@ -80,16 +85,19 @@ func (s *Server) RunFrontendServer(frontend *Frontend) {
 			}
 		}()
 
+		// Get a channel the already attached to a worker
 		chanResponse := frontend.WPool.Get(r, frontend)
 		defer close(chanResponse)
 
 		r.Close = true
 
+		// Timeout ticker
 		ticker := time.NewTicker(frontend.Timeout)
 		defer ticker.Stop()
 
 		select {
 		case result := <-chanResponse:
+			// We have a response, it's valid ?
 			if result.Status >= 400 {
 				http.Error(w, string(result.Body), result.Status)
 			} else {
@@ -97,11 +105,13 @@ func (s *Server) RunFrontendServer(frontend *Frontend) {
 				w.Write(result.Body)
 			}
 
+		// Timeout
 		case <-ticker.C:
 			http.Error(w, errTimeout.Error(), http.StatusRequestTimeout)
 		}
 	})
 
+	// Config and start server
 	server := &http.Server{
 		Addr:    address,
 		Handler: httpHandle,
@@ -115,6 +125,7 @@ func (s *Server) Run() {
 		log.Fatal(errNoFrontend.Error())
 	}
 
+	// Run the fronend config
 	for _, frontend := range s.Frontends {
 		s.RunFrontendServer(frontend)
 	}

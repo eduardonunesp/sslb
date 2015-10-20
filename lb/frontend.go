@@ -10,33 +10,38 @@ var (
 )
 
 const (
-	StrategyEqual = iota
-	StrategyRoundRobin
+	StrategyRoundRobin = iota
 )
 
+// Frontend structure
 type Frontend struct {
 	Name  string
 	Host  string
-	Port  uint
+	Port  int
 	Route string
 
 	Backends Backends
-	Strategy uint
+	Strategy int
 	Timeout  time.Duration
 	WPool    *WorkerPool
 }
 
 type Frontends []*Frontend
 
-func NewFrontend(name string, host string, port uint, route string) *Frontend {
-	wp := NewWorkerPool(100, 100)
+func NewFrontend(name string, host string,
+	port int, route string, timeout int,
+	workerPoolSize, dispatcherPoolSize int) *Frontend {
+
+	// Config the pool size for workers and dispatchers
+	wp := NewWorkerPool(workerPoolSize, dispatcherPoolSize)
 	return &Frontend{
-		Name:     name,
-		Host:     host,
-		Port:     port,
-		Route:    route,
-		Strategy: StrategyEqual,
-		Timeout:  time.Millisecond * 1000 * 5,
+		Name:    name,
+		Host:    host,
+		Port:    port,
+		Route:   route,
+		Timeout: time.Duration(timeout) * time.Millisecond,
+
+		Strategy: StrategyRoundRobin,
 		WPool:    wp,
 	}
 }
@@ -45,6 +50,6 @@ func (f *Frontend) AddBackend(backend *Backend) {
 	f.Backends = append(f.Backends, backend)
 }
 
-func (f *Frontend) SetStrategy(balance uint) {
+func (f *Frontend) SetStrategy(balance int) {
 	f.Strategy = balance
 }
