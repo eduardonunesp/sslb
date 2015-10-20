@@ -1,0 +1,27 @@
+{
+    "general": {
+        "workerPoolSize": 10,
+    },
+    "frontends" : [{
+        "host" : "127.0.0.1",
+        "port" : 9000,
+        "route" : "/",
+        "timeout" : 5000,
+        "add-x-forwarded-for" : true
+        "backends" : [{
+            "name" : "Back1",
+            "address" : "http://127.0.0.1:9001",
+            "heartbeat" : "http://127.0.0.1:9001",
+            "inactiveAfter" : 3,
+            "heartbeatTime" : 5000,
+            "retryTime" : 5000
+        },{
+            "name" : "Back2",
+            "address" : "http://127.0.0.1:9002",
+            "heartbeat" : "http://127.0.0.1:9002",
+            "inactiveAfter" : 3,
+            "heartbeatTime" : 5000,
+            "retryTime" : 5000
+        }]
+    }]
+}

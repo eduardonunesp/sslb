@@ -1,10 +1,15 @@
 package lb
 
 import (
+	"errors"
 	"log"
 	"net/http"
 	"sync"
 	"time"
+)
+
+var (
+	errInvalidBackend = errors.New("Invalid backend")
 )
 
 //TODO: Need to rebalance the score when backend back to active
@@ -60,7 +65,7 @@ func (b *Backend) HeartCheck() {
 			resp, err := http.Head(b.Heartbeat)
 			if err != nil {
 				if b.Tries >= b.InactiveAfter {
-					log.Println("Backend inactive", b.Name)
+					log.Printf("Backend inactive [%s]", b.Name)
 					b.Mutex.Lock()
 					b.Active = false
 					b.Mutex.Unlock()
@@ -69,12 +74,15 @@ func (b *Backend) HeartCheck() {
 					b.Failed = true
 					b.Tries += 1
 					b.Mutex.Unlock()
-					log.Println("Error to check", b.Heartbeat, b.Name, b.Tries)
+					log.Printf("Error to check address [%s] name [%s] tries [%d]", b.Heartbeat, b.Name, b.Tries)
 				}
 			} else {
 				defer resp.Body.Close()
 
-				log.Println("Backend active", b.Name)
+				if b.Failed {
+					log.Printf("Backend active [%s]", b.Name)
+				}
+
 				b.Mutex.Lock()
 				b.Failed = false
 				b.Active = true
