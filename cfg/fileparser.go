@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"log"
+	"runtime"
 
 	"github.com/eduardonunesp/sslb/lb"
 )
@@ -58,7 +59,12 @@ func ConfParser() Config {
 func Setup() *lb.Server {
 	config := ConfParser()
 
-	server := lb.NewServer(config.General.MaxProcs)
+	cpus := runtime.NumCPU()
+	log.Printf("%d CPUS available, using only %d", cpus, config.General.MaxProcs)
+
+	runtime.GOMAXPROCS(config.General.MaxProcs)
+
+	server := lb.NewServer()
 
 	for _, frontendConfig := range config.Frontends {
 		frontend := lb.NewFrontend(

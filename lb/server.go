@@ -5,25 +5,22 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"runtime"
 	"time"
 )
 
 var (
-	errNoFrontend     = errors.New("No frontend configuration detected")
-	errNoBackend      = errors.New("No backend configuration detected")
-	errTimeout        = errors.New("Timeout")
-	errInvalidRequest = errors.New("Invalid request")
-	errPortExists     = errors.New("Port already in use")
-	errRouteExists    = errors.New("Route already in use")
+	errNoFrontend  = errors.New("No frontend configuration detected")
+	errNoBackend   = errors.New("No backend configuration detected")
+	errTimeout     = errors.New("Timeout")
+	errPortExists  = errors.New("Port already in use")
+	errRouteExists = errors.New("Route already in use")
 )
 
 type Server struct {
 	Frontends Frontends
 }
 
-func NewServer(procs int) *Server {
-	runtime.GOMAXPROCS(procs)
+func NewServer() *Server {
 	return &Server{}
 }
 
@@ -98,9 +95,15 @@ func (s *Server) RunFrontendServer(frontend *Frontend) {
 		select {
 		case result := <-chanResponse:
 			// We have a response, it's valid ?
-			if result.Status >= 400 {
+			if result.Internal {
 				http.Error(w, string(result.Body), result.Status)
 			} else {
+				for k, vv := range result.Header {
+					for _, v := range vv {
+						w.Header().Set(k, v)
+					}
+				}
+
 				w.WriteHeader(result.Status)
 				w.Write(result.Body)
 			}

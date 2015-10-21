@@ -1,0 +1,40 @@
+{
+    "general": {
+        "maxProcs": 4
+    },
+
+    "frontends" : [{
+        "name" : "Frontend App",
+        "host" : "0.0.0.0",
+        "port" : 80,
+        "route" : "/",
+        "timeout" : 5000,
+        "workerPoolSize": 1000,
+        "dispatcherPoolSize": 1000,
+
+        "backends" : [
+            {
+                "name" : "Backend 1",
+                "address" : "http://127.0.0.1:9001",
+                "heartbeat" : "http://127.0.0.1:9001/heartbeat",
+                "inactiveAfter" : 3,
+                "heartbeatTime" : 15000,
+                "retryTime" : 1000
+            },{
+                "name" : "Backend 2",
+                "address" : "http://127.0.0.1:9002",
+                "heartbeat" : "http://127.0.0.1:9002/heartbeat",
+                "inactiveAfter" : 3,
+                "heartbeatTime" : 15000,
+                "retryTime" : 1000
+            },{
+                "name" : "Backend 3",
+                "address" : "http://127.0.0.1:9003",
+                "heartbeat" : "http://127.0.0.1:9003/heartbeat",
+                "inactiveAfter" : 1,
+                "heartbeatTime" : 5000,
+                "retryTime" : 1000
+            }
+        ]
+    }]
+}

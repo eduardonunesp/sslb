@@ -9,14 +9,20 @@ import (
 )
 
 type WorkRequest struct {
-	Status int
-	Body   []byte
+	Status   int
+	Header   http.Header
+	Body     []byte
+	Internal bool
 }
 
 type WorkRequestChan chan WorkRequest
 
-func NewWorkerRequest(status int, result []byte) WorkRequest {
-	return WorkRequest{status, result}
+func NewWorkerRequestErr(status int, body []byte) WorkRequest {
+	return WorkRequest{Status: status, Body: body, Internal: true}
+}
+
+func NewWorkerRequest(status int, header http.Header, body []byte) WorkRequest {
+	return WorkRequest{Status: status, Header: header, Body: body}
 }
 
 type WorkerFunc func(*http.Request, *Frontend) WorkRequestChan
@@ -63,7 +69,7 @@ func (w *Worker) Run(r *http.Request, frontend *Frontend) WorkRequestChan {
 		if backend != nil {
 			w.DPool.Get(backend, r, chanReceiver)
 		} else {
-			chanReceiver <- NewWorkerRequest(500, []byte("No backend available"))
+			chanReceiver <- NewWorkerRequestErr(500, []byte("No backend available"))
 		}
 
 		w.Mutex.Lock()
@@ -105,13 +111,12 @@ func (wp *WorkerPool) Get(r *http.Request, frontend *Frontend) WorkRequestChan {
 	for {
 
 		for _, worker := range wp.Workers {
+			worker.Mutex.Lock()
 			if worker.Idle {
-				worker.Mutex.Lock()
 				worker.Idle = false
 				idleWorker = worker
-				worker.Mutex.Unlock()
-				break
 			}
+			worker.Mutex.Unlock()
 		}
 
 		if idleWorker != nil {

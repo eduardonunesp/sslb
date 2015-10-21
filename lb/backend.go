@@ -65,8 +65,15 @@ func NewBackend(name string, address string, heartbeat string,
 func (b *Backend) HeartCheck() {
 	go func() {
 		for {
-			resp, err := http.Head(b.Heartbeat)
-			if err != nil {
+			var request *http.Request
+			var err error
+
+			client := &http.Client{}
+			request, err = http.NewRequest("HEAD", b.Heartbeat, nil)
+			request.Header.Set("User-Agent", "SSLB-Heartbeat")
+
+			resp, err := client.Do(request)
+			if err != nil || resp.StatusCode >= 400 {
 				// Max tries before consider inactive
 				if b.Tries >= b.InactiveAfter {
 					log.Printf("Backend inactive [%s]", b.Name)

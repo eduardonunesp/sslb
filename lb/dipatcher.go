@@ -17,20 +17,41 @@ func NewDispatcher() *Dispatcher {
 	return &Dispatcher{Idle: true}
 }
 
-func getRequest(address string) WorkRequest {
-	result, err := http.Get(address)
-	if err != nil {
-		return NewWorkerRequest(http.StatusInternalServerError, []byte(err.Error()))
-	}
-
+func processReturn(result *http.Response) WorkRequest {
 	defer result.Body.Close()
 
 	body, err := ioutil.ReadAll(result.Body)
 	if err != nil {
-		return NewWorkerRequest(http.StatusInternalServerError, []byte(err.Error()))
+		return NewWorkerRequest(http.StatusInternalServerError, result.Header, []byte(err.Error()))
 	}
 
-	return NewWorkerRequest(http.StatusOK, []byte(body))
+	return NewWorkerRequest(result.StatusCode, result.Header, []byte(body))
+}
+
+func execRequest(address string, r *http.Request) WorkRequest {
+	var request *http.Request
+	var err error
+
+	client := &http.Client{}
+	request, err = http.NewRequest(r.Method, address, r.Body)
+
+	for k, vv := range r.Header {
+		for _, v := range vv {
+			request.Header.Set(k, v)
+		}
+	}
+
+	response, err := client.Do(request)
+
+	if err != nil {
+		return NewWorkerRequestErr(http.StatusInternalServerError, []byte(err.Error()))
+	}
+
+	if response == nil {
+		return NewWorkerRequestErr(http.StatusBadGateway, []byte("Method Not Supported By SSLB"))
+	}
+
+	return processReturn(response)
 }
 
 func (d *Dispatcher) Run(backend *Backend, r *http.Request, chanReceiver WorkRequestChan) {
@@ -38,16 +59,14 @@ func (d *Dispatcher) Run(backend *Backend, r *http.Request, chanReceiver WorkReq
 	d.Idle = false
 	d.Mutex.Unlock()
 
-	if r.Method == "GET" {
-		backend.Mutex.Lock()
-		backend.Score += 1
-		backend.Mutex.Unlock()
+	backend.Mutex.Lock()
+	backend.Score += 1
+	backend.Mutex.Unlock()
 
-		go func(c WorkRequestChan, d *Dispatcher) {
-			c <- getRequest(backend.Address)
-			d.Idle = true
-		}(chanReceiver, d)
-	}
+	chanReceiver <- execRequest(backend.Address, r)
+	d.Mutex.Lock()
+	d.Idle = true
+	d.Mutex.Unlock()
 }
 
 type Dispatchers []*Dispatcher
@@ -78,13 +97,12 @@ func (dp *DispatcherPool) Get(backend *Backend, r *http.Request, chanReceiver Wo
 
 	for {
 		for _, dispatcher := range dp.Dispatchers {
+			dispatcher.Mutex.Lock()
 			if dispatcher.Idle {
-				dispatcher.Mutex.Lock()
 				dispatcher.Idle = false
 				idleDispatcher = dispatcher
-				dispatcher.Mutex.Unlock()
-				break
 			}
+			dispatcher.Mutex.Unlock()
 		}
 
 		if idleDispatcher != nil {
@@ -94,7 +112,6 @@ func (dp *DispatcherPool) Get(backend *Backend, r *http.Request, chanReceiver Wo
 		time.Sleep(time.Millisecond)
 	}
 
-	dp.Mutex.Unlock()
-
 	idleDispatcher.Run(backend, r, chanReceiver)
+	dp.Mutex.Unlock()
 }
