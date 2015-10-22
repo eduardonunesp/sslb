@@ -8,6 +8,7 @@ import (
 	"strings"
 )
 
+// CountOpenFiles open file descriptor by program
 func CountOpenFiles() int {
 	out, err := exec.Command("/bin/sh", "-c", fmt.Sprintf("lsof -p %v", os.Getpid())).Output()
 	if err != nil {

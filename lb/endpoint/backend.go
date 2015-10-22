@@ -1,15 +1,10 @@
-package lb
+package endpoint
 
 import (
-	"errors"
 	"log"
 	"net/http"
 	"sync"
 	"time"
-)
-
-var (
-	errInvalidBackend = errors.New("Invalid backend")
 )
 
 //TODO: Need to rebalance the score when backend back to active
@@ -84,7 +79,7 @@ func (b *Backend) HeartCheck() {
 					// Ok that guy it's out of the game
 					b.Mutex.Lock()
 					b.Failed = true
-					b.Tries += 1
+					b.Tries++
 					b.Mutex.Unlock()
 					log.Printf("Error to check address [%s] name [%s] tries [%d]", b.Heartbeat, b.Name, b.Tries)
 				}

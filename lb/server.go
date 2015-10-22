@@ -6,6 +6,9 @@ import (
 	"log"
 	"net/http"
 	"time"
+
+	"github.com/eduardonunesp/sslb/lb/endpoint"
+	"github.com/eduardonunesp/sslb/lb/worker"
 )
 
 var (
@@ -17,15 +20,18 @@ var (
 )
 
 type Server struct {
-	Frontends Frontends
+	Frontends endpoint.Frontends
+	WPool     *worker.WorkerPool
 }
 
-func NewServer() *Server {
-	return &Server{}
+func NewServer(workerPoolSize, dispatcherPoolSize int) *Server {
+	// Config the pool size for workers and dispatchers
+	wp := worker.NewWorkerPool(workerPoolSize, dispatcherPoolSize)
+	return &Server{WPool: wp}
 }
 
 // Some previous checkings before run
-func (s *Server) preChecksBeforeAdd(newFrontend *Frontend) error {
+func (s *Server) preChecksBeforeAdd(newFrontend *endpoint.Frontend) error {
 	for _, frontend := range s.Frontends {
 		if frontend.Route == newFrontend.Route {
 			return errRouteExists
@@ -43,7 +49,7 @@ func (s *Server) preChecksBeforeAdd(newFrontend *Frontend) error {
 	return nil
 }
 
-func (s *Server) AddFrontend(frontend *Frontend) {
+func (s *Server) AddFrontend(frontend *endpoint.Frontend) {
 	err := s.preChecksBeforeAdd(frontend)
 	if err != nil {
 		log.Fatal(err.Error())
@@ -53,7 +59,7 @@ func (s *Server) AddFrontend(frontend *Frontend) {
 }
 
 // Lets run the frontned
-func (s *Server) RunFrontendServer(frontend *Frontend) {
+func (s *Server) RunFrontendServer(frontend *endpoint.Frontend) {
 	if len(frontend.Backends) == 0 {
 		log.Fatal(errNoBackend.Error())
 	}
@@ -83,7 +89,7 @@ func (s *Server) RunFrontendServer(frontend *Frontend) {
 		}()
 
 		// Get a channel the already attached to a worker
-		chanResponse := frontend.WPool.Get(r, frontend)
+		chanResponse := s.WPool.Get(r, frontend)
 		defer close(chanResponse)
 
 		r.Close = true

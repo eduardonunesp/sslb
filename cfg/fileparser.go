@@ -7,11 +7,14 @@ import (
 	"runtime"
 
 	"github.com/eduardonunesp/sslb/lb"
+	"github.com/eduardonunesp/sslb/lb/endpoint"
 )
 
 // General config
 type General struct {
-	MaxProcs int
+	MaxProcs           int
+	WorkerPoolSize     int
+	DispatcherPoolSize int
 }
 
 // Backend config
@@ -26,14 +29,12 @@ type Backend struct {
 
 // Frontend config
 type Frontend struct {
-	Name               string
-	Host               string
-	Port               int
-	Route              string
-	Timeout            int
-	WorkerPoolSize     int
-	DispatcherPoolSize int
-	Backends           []Backend
+	Name     string
+	Host     string
+	Port     int
+	Route    string
+	Timeout  int
+	Backends []Backend
 }
 
 // Config structured used to build the server
@@ -42,20 +43,24 @@ type Config struct {
 	Frontends []Frontend
 }
 
-// Parse JSON FILE
+// ConfParser to Parse JSON FILE
 func ConfParser() Config {
 	file, e := ioutil.ReadFile("./config.json")
 	if e != nil {
-		log.Fatal("File error: %v\n", e)
+		log.Fatal("File error", e)
 	}
 
 	var jsonConfig Config
-	json.Unmarshal(file, &jsonConfig)
+	err := json.Unmarshal(file, &jsonConfig)
+
+	if err != nil {
+		log.Fatal("Error to parse json conf", err.Error())
+	}
 
 	return jsonConfig
 }
 
-// Build everything and let the server run
+// Setup will build everything and let the server run
 func Setup() *lb.Server {
 	config := ConfParser()
 
@@ -64,16 +69,15 @@ func Setup() *lb.Server {
 
 	runtime.GOMAXPROCS(config.General.MaxProcs)
 
-	server := lb.NewServer()
+	server := lb.NewServer(config.General.WorkerPoolSize, config.General.DispatcherPoolSize)
 
 	for _, frontendConfig := range config.Frontends {
-		frontend := lb.NewFrontend(
+		frontend := endpoint.NewFrontend(
 			frontendConfig.Name, frontendConfig.Host,
-			frontendConfig.Port, frontendConfig.Route, frontendConfig.Timeout,
-			frontendConfig.WorkerPoolSize, frontendConfig.DispatcherPoolSize)
+			frontendConfig.Port, frontendConfig.Route, frontendConfig.Timeout)
 
 		for _, backendConfig := range frontendConfig.Backends {
-			backend := lb.NewBackend(backendConfig.Name, backendConfig.Address,
+			backend := endpoint.NewBackend(backendConfig.Name, backendConfig.Address,
 				backendConfig.Heartbeat, backendConfig.InactiveAfter, backendConfig.HeartbeatTime,
 				backendConfig.RetryTime)
 			frontend.AddBackend(backend)

@@ -1,6 +1,8 @@
 {
     "general": {
-        "maxProcs": 4
+        "maxProcs": 4,
+        "workerPoolSize": 1000,
+        "dispatcherPoolSize": 1000
     },
 
     "frontends" : [{
@@ -9,8 +11,6 @@
         "port" : 80,
         "route" : "/",
         "timeout" : 5000,
-        "workerPoolSize": 1000,
-        "dispatcherPoolSize": 1000,
 
         "backends" : [
             {
