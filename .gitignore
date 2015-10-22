@@ -23,3 +23,5 @@ _testmain.go
 *.test
 *.prof
 config.json
+Godeps/_workspace
+Godeps/Readme

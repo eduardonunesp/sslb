@@ -22,6 +22,7 @@ type Backend struct {
 	Name          string
 	Address       string
 	Heartbeat     string
+	HBMethod      string
 	InactiveAfter int
 	HeartbeatTime int
 	RetryTime     int
@@ -43,12 +44,28 @@ type Config struct {
 	Frontends []Frontend
 }
 
-// ConfParser to Parse JSON FILE
-func ConfParser() Config {
-	file, e := ioutil.ReadFile("./config.json")
+func openFile(filename string) []byte {
+	file, e := ioutil.ReadFile("/etc/sslb/" + filename)
+	if e == nil {
+		return file
+	}
+
+	file, e = ioutil.ReadFile("~/./sslb/" + filename)
+	if e == nil {
+		return file
+	}
+
+	file, e = ioutil.ReadFile("./" + filename)
 	if e != nil {
 		log.Fatal("File error", e)
 	}
+
+	return file
+}
+
+// ConfParser to Parse JSON FILE
+func ConfParser() Config {
+	file := openFile("config.json")
 
 	var jsonConfig Config
 	err := json.Unmarshal(file, &jsonConfig)
@@ -58,6 +75,56 @@ func ConfParser() Config {
 	}
 
 	return jsonConfig
+}
+
+func CreateConfig(filename string) {
+	configExample := []byte(`{
+    "general": {
+        "maxProcs": 4,
+        "workerPoolSize": 1000,
+        "dispatcherPoolSize": 1000
+    },
+
+    "frontends" : [{
+        "name" : "Frontend App",
+        "host" : "0.0.0.0",
+        "port" : 80,
+        "route" : "/",
+        "timeout" : 5000,
+
+        "backends" : [
+            {
+                "name" : "Backend 1",
+                "address" : "http://127.0.0.1:9001",
+                "heartbeat" : "http://127.0.0.1:9001/heartbeat",
+                "inactiveAfter" : 3,
+                "heartbeatTime" : 15000,
+                "retryTime" : 1000
+            },{
+                "name" : "Backend 2",
+                "address" : "http://127.0.0.1:9002",
+                "heartbeat" : "http://127.0.0.1:9002/heartbeat",
+                "hbmethod" : "HEAD",
+                "inactiveAfter" : 3,
+                "heartbeatTime" : 15000,
+                "retryTime" : 1000
+            },{
+                "name" : "Backend 3",
+                "address" : "http://127.0.0.1:9003",
+                "heartbeat" : "http://127.0.0.1:9003/heartbeat",
+                "hbmethod" : "HEAD",
+                "inactiveAfter" : 1,
+                "heartbeatTime" : 5000,
+                "retryTime" : 1000
+            }
+        ]
+    }]
+}`)
+
+	err := ioutil.WriteFile(filename, configExample, 0644)
+	if err != nil {
+		log.Fatal("Can't create file config.json example", err)
+	}
 }
 
 // Setup will build everything and let the server run
@@ -77,8 +144,8 @@ func Setup() *lb.Server {
 			frontendConfig.Port, frontendConfig.Route, frontendConfig.Timeout)
 
 		for _, backendConfig := range frontendConfig.Backends {
-			backend := endpoint.NewBackend(backendConfig.Name, backendConfig.Address,
-				backendConfig.Heartbeat, backendConfig.InactiveAfter, backendConfig.HeartbeatTime,
+			backend := endpoint.NewBackend(backendConfig.Name, backendConfig.Address, backendConfig.Heartbeat,
+				backendConfig.HBMethod, backendConfig.InactiveAfter, backendConfig.HeartbeatTime,
 				backendConfig.RetryTime)
 			frontend.AddBackend(backend)
 		}

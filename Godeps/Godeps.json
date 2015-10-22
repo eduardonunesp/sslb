@@ -1,0 +1,11 @@
+{
+	"ImportPath": "github.com/eduardonunesp/sslb",
+	"GoVersion": "go1.5",
+	"Deps": [
+		{
+			"ImportPath": "github.com/codegangsta/cli",
+			"Comment": "1.2.0-161-gf445c89",
+			"Rev": "f445c894402839580d30de47551cedc152dad814"
+		}
+	]
+}

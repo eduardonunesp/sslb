@@ -16,6 +16,7 @@ type Backend struct {
 	Name      string
 	Address   string
 	Heartbeat string
+	HBMethod  string
 
 	// Consider inactive after max inactiveAfter
 	InactiveAfter int
@@ -38,12 +39,13 @@ func (a ByScore) Len() int           { return len(a) }
 func (a ByScore) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a ByScore) Less(i, j int) bool { return a[i].Score < a[j].Score }
 
-func NewBackend(name string, address string, heartbeat string,
+func NewBackend(name, address, heartbeat, hbmethod string,
 	inactiveAfter, heartbeatTime, retryTime int) *Backend {
 	return &Backend{
 		Name:      name,
 		Address:   address,
 		Heartbeat: address,
+		HBMethod:  hbmethod,
 
 		InactiveAfter: inactiveAfter,
 		HeartbeatTime: time.Duration(heartbeatTime) * time.Millisecond,
@@ -64,7 +66,7 @@ func (b *Backend) HeartCheck() {
 			var err error
 
 			client := &http.Client{}
-			request, err = http.NewRequest("HEAD", b.Heartbeat, nil)
+			request, err = http.NewRequest(b.HBMethod, b.Heartbeat, nil)
 			request.Header.Set("User-Agent", "SSLB-Heartbeat")
 
 			resp, err := client.Do(request)
