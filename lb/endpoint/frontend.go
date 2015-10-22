@@ -1,15 +1,9 @@
-package lb
+package endpoint
 
-import (
-	"errors"
-	"time"
-)
-
-var (
-	errInvalidFrontend = errors.New("Invalid frontend configuration")
-)
+import "time"
 
 const (
+	// StrategyRoundRobin is the strategy available for now
 	StrategyRoundRobin = iota
 )
 
@@ -23,17 +17,14 @@ type Frontend struct {
 	Backends Backends
 	Strategy int
 	Timeout  time.Duration
-	WPool    *WorkerPool
 }
 
 type Frontends []*Frontend
 
+// Create and returns a new Frontend
 func NewFrontend(name string, host string,
-	port int, route string, timeout int,
-	workerPoolSize, dispatcherPoolSize int) *Frontend {
+	port int, route string, timeout int) *Frontend {
 
-	// Config the pool size for workers and dispatchers
-	wp := NewWorkerPool(workerPoolSize, dispatcherPoolSize)
 	return &Frontend{
 		Name:    name,
 		Host:    host,
@@ -42,14 +33,15 @@ func NewFrontend(name string, host string,
 		Timeout: time.Duration(timeout) * time.Millisecond,
 
 		Strategy: StrategyRoundRobin,
-		WPool:    wp,
 	}
 }
 
+// AddBackend it's responsible to link a backend conf with frontend
 func (f *Frontend) AddBackend(backend *Backend) {
 	f.Backends = append(f.Backends, backend)
 }
 
+// SetStrategy will set the strategy of balancing
 func (f *Frontend) SetStrategy(balance int) {
 	f.Strategy = balance
 }
