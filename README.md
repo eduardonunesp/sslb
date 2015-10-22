@@ -20,7 +20,9 @@ go run main.go
 ```
 {
     "general": {
-        "maxProcs": 4
+        "maxProcs": 4,
+        "workerPoolSize": 10,
+        "dispatcherPoolSize": 10
     },
     
     "frontends" : [
@@ -30,8 +32,6 @@ go run main.go
             "port" : 9000,
             "route" : "/",
             "timeout" : 5000,
-            "workerPoolSize": 10,
-            "dispatcherPoolSize": 10,
             
             "backends" : [
                 {
