@@ -38,6 +38,8 @@ type Frontend struct {
 	Backends []Backend
 }
 
+const DEFAULT_FILENAME = "config.json"
+
 // Config structured used to build the server
 type Config struct {
 	General   General
@@ -45,27 +47,39 @@ type Config struct {
 }
 
 func openFile(filename string) []byte {
-	file, e := ioutil.ReadFile("/etc/sslb/" + filename)
-	if e == nil {
+	var file []byte
+	var err error
+
+	if filename != "" {
+		file, err = ioutil.ReadFile(filename)
+		if err == nil {
+			return file
+		} else {
+			log.Fatal(err)
+		}
+	}
+
+	file, err = ioutil.ReadFile("/etc/sslb/" + DEFAULT_FILENAME)
+	if err == nil {
 		return file
 	}
 
-	file, e = ioutil.ReadFile("~/./sslb/" + filename)
-	if e == nil {
+	file, err = ioutil.ReadFile("~/./sslb/" + DEFAULT_FILENAME)
+	if err == nil {
 		return file
 	}
 
-	file, e = ioutil.ReadFile("./" + filename)
-	if e != nil {
-		log.Fatal("File error", e)
+	file, err = ioutil.ReadFile("./" + DEFAULT_FILENAME)
+	if err != nil {
+		log.Fatal("No config file found, in /etc/sslb or ~/.sslb or in current dir")
 	}
 
 	return file
 }
 
 // ConfParser to Parse JSON FILE
-func ConfParser() Config {
-	file := openFile("config.json")
+func ConfParser(filename string) Config {
+	file := openFile(filename)
 
 	var jsonConfig Config
 	err := json.Unmarshal(file, &jsonConfig)
@@ -128,8 +142,8 @@ func CreateConfig(filename string) {
 }
 
 // Setup will build everything and let the server run
-func Setup() *lb.Server {
-	config := ConfParser()
+func Setup(filename string) *lb.Server {
+	config := ConfParser(filename)
 
 	cpus := runtime.NumCPU()
 	log.Printf("%d CPUS available, using only %d", cpus, config.General.MaxProcs)

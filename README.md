@@ -10,13 +10,69 @@ To install type:
 go get github.com/eduardonunesp/sslb
 ```
 
-Don't forget to create your configuration file `config.json` at the same directory of project and run it
+Don't forget to create your configuration file `config.json` at the same directory of project and run it. You can use the command `sslb -c` to create an example of configuration file.
+
+
+## Usage
+Type `sslb -h` for the command line help
 
 ```
-go run main.go
+sslb -h                                                                                                                                                              
+NAME:
+   sslb (SUPER SIMPLE LOAD BALANCER) - sslb
+
+USAGE:
+   sslb [global options] command [command options] [arguments...]
+
+VERSION:
+   0.0.4
+
+COMMANDS:
+   help, h	Shows a list of commands or help for one command
+
+GLOBAL OPTIONS:
+   --verbose, -b	activate the verbose output
+   --config, -c		create an example of config file
+   --filename, -f 	set the filename as the configuration
+   --help, -h		show help
+   --version, -v	print the version
 ```
 
-## Configuration file (example)
+After the configuration file completed you can type only `sslb -b` to start SSLB with verbose mode, that command will log the output from SSLB in console. That will print something like that:
+
+```
+sslb -b                                                                                                                                                               
+2015/10/22 12:22:24 4 CPUS available, using only 4
+2015/10/22 12:22:24 Create dispatcher pool with [10]
+2015/10/22 12:22:24 Create worker pool with [10]
+2015/10/22 12:22:24 Run frontend server [Front1] at [0.0.0.0:80]
+2015/10/22 12:22:24 Backend active [Backend 2]
+2015/10/22 12:22:24 Backend active [Backend 2]
+```
+
+## Configuration options
+
+* general:
+	* maxProcs: Number of processors used by Go runtime
+	* workerPoolSize: Number of workers for processing request
+	* dispatcherPoolSize: Number of dispatchers for send the requests to the backends	
+* frontends:
+	* name: Just a identifier to your front server
+	* host: Host address that serves the HTTP front
+	* port: Port address that serves the HTTP front
+	* route: Route to receive the traffic
+	* timeout: How long can wait for the result (ms) from the backend
+
+* backends:
+	* name: Just a identifier
+	* address: Address (URL) for your backend
+	* hearbeat: Addres to send Head request to test if it's ok
+	* inactiveAfter: Consider the backend inactive after
+	* heartbeatTime: The interval to send a "ping"
+	* retryTime: The interval to send a "ping" after the first failed "ping"
+	
+### Example (config.json)
+
 ```
 {
     "general": {
@@ -55,26 +111,6 @@ go run main.go
 }
 ```
 
-* general:
-	* maxProcs: Number of processors used by Go runtime
-	
-* frontends:
-	* name: Just a identifier to your front server
-	* host: Host address that serves the HTTP front
-	* port: Port address that serves the HTTP front
-	* route: Route to receive the traffic
-	* timeout: How long can wait for the result (ms) from the backend
-	* workerPoolSize: Number of workers for processing request
-	* dispatcherPoolSize: Number of dispatchers for send the requests to the backends
-
-* backends:
-	* name: Just a identifier
-	* address: Address (URL) for your backend
-	* hearbeat: Addres to send Head request to test if it's ok
-	* inactiveAfter: Consider the backend inactive after
-	* heartbeatTime: The interval to send a "ping"
-	* retryTime: The interval to send a "ping" after the first failed "ping"
-	
 
 ## LICENSE
 Copyright (c) 2015, Eduardo Nunes Pereira

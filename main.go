@@ -13,7 +13,7 @@ const APP_NAME = "sslb (SUPER SIMPLE LOAD BALANCER)"
 const APP_USAGE = "sslb"
 const VERSION_MAJOR = "0"
 const VERSION_MINOR = "0"
-const VERSION_BUILD = "3"
+const VERSION_BUILD = "4"
 const CONFIG_FILENAME = "config.json.example"
 
 func main() {
@@ -27,6 +27,10 @@ func main() {
 		cli.BoolFlag{
 			Name:  "config, c",
 			Usage: "create an example of config file",
+		},
+		cli.StringFlag{
+			Name:  "filename, f",
+			Usage: "set the filename as the configuration",
 		},
 	}
 
@@ -44,9 +48,14 @@ func main() {
 			os.Exit(0)
 		}
 
+		filename := "config.json"
+		if c.String("filename") != "" {
+			filename = c.String("filename")
+		}
+
 		// The function setup do everything for configure
 		// and return the server ready to run
-		server := cfg.Setup()
+		server := cfg.Setup(filename)
 		server.Run()
 
 	}
