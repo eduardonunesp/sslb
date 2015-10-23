@@ -44,7 +44,7 @@ func NewBackend(name, address, heartbeat, hbmethod string,
 	return &Backend{
 		Name:      name,
 		Address:   address,
-		Heartbeat: address,
+		Heartbeat: heartbeat,
 		HBMethod:  hbmethod,
 
 		InactiveAfter: inactiveAfter,
