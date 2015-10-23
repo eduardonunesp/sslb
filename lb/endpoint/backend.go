@@ -18,8 +18,9 @@ type Backend struct {
 	Heartbeat string
 	HBMethod  string
 
-	// Consider inactive after max inactiveAfter
+	ActiveAfter   int
 	InactiveAfter int
+	// Consider inactive after max inactiveAfter
 
 	HeartbeatTime time.Duration // Heartbeat time if health
 	RetryTime     time.Duration // Retry to time after failed
@@ -27,8 +28,10 @@ type Backend struct {
 	// The last request failed
 	Failed bool
 	Active bool
-	Tries  int
-	Score  int
+
+	InactiveTries int
+	ActiveTries   int
+	Score         int
 }
 
 type Backends []*Backend
@@ -40,21 +43,22 @@ func (a ByScore) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a ByScore) Less(i, j int) bool { return a[i].Score < a[j].Score }
 
 func NewBackend(name, address, heartbeat, hbmethod string,
-	inactiveAfter, heartbeatTime, retryTime int) *Backend {
+	activeAfter, inactiveAfter, heartbeatTime, retryTime int) *Backend {
 	return &Backend{
 		Name:      name,
 		Address:   address,
 		Heartbeat: heartbeat,
 		HBMethod:  hbmethod,
 
+		ActiveAfter:   activeAfter,
 		InactiveAfter: inactiveAfter,
 		HeartbeatTime: time.Duration(heartbeatTime) * time.Millisecond,
 		RetryTime:     time.Duration(retryTime) * time.Millisecond,
 
-		Failed: true,
-		Active: true,
-		Tries:  0,
-		Score:  0,
+		Failed:        true,
+		Active:        true,
+		InactiveTries: 0,
+		Score:         0,
 	}
 }
 
@@ -71,32 +75,35 @@ func (b *Backend) HeartCheck() {
 
 			resp, err := client.Do(request)
 			if err != nil || resp.StatusCode >= 400 {
+				b.Mutex.Lock()
 				// Max tries before consider inactive
-				if b.Tries >= b.InactiveAfter {
+				if b.InactiveTries >= b.InactiveAfter {
 					log.Printf("Backend inactive [%s]", b.Name)
-					b.Mutex.Lock()
 					b.Active = false
-					b.Mutex.Unlock()
+					b.ActiveTries = 0
 				} else {
 					// Ok that guy it's out of the game
-					b.Mutex.Lock()
 					b.Failed = true
-					b.Tries++
-					b.Mutex.Unlock()
-					log.Printf("Error to check address [%s] name [%s] tries [%d]", b.Heartbeat, b.Name, b.Tries)
+					b.InactiveTries++
+					log.Printf("Error to check address [%s] name [%s] tries [%d]", b.Heartbeat, b.Name, b.InactiveTries)
 				}
+				b.Mutex.Unlock()
 			} else {
 				defer resp.Body.Close()
 
-				if b.Failed {
-					log.Printf("Backend active [%s]", b.Name)
-				}
-
 				// Ok, let's keep working boys
 				b.Mutex.Lock()
-				b.Failed = false
-				b.Active = true
-				b.Tries = 0
+				if b.ActiveTries >= b.ActiveAfter {
+					if b.Failed {
+						log.Printf("Backend active [%s]", b.Name)
+					}
+
+					b.Failed = false
+					b.Active = true
+					b.InactiveTries = 0
+				} else {
+					b.ActiveTries++
+				}
 				b.Mutex.Unlock()
 			}
 

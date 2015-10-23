@@ -23,6 +23,7 @@ type Backend struct {
 	Address       string
 	Heartbeat     string
 	HBMethod      string
+	ActiveAfter   int
 	InactiveAfter int
 	HeartbeatTime int
 	RetryTime     int
@@ -120,6 +121,7 @@ func CreateConfig(filename string) {
                 "heartbeat" : "http://127.0.0.1:9002/heartbeat",
                 "hbmethod" : "HEAD",
                 "inactiveAfter" : 3,
+                "activeAfter" : 1,
                 "heartbeatTime" : 15000,
                 "retryTime" : 1000
             },{
@@ -127,6 +129,7 @@ func CreateConfig(filename string) {
                 "address" : "http://127.0.0.1:9003",
                 "heartbeat" : "http://127.0.0.1:9003/heartbeat",
                 "hbmethod" : "HEAD",
+                "activeAfter" : 1,
                 "inactiveAfter" : 1,
                 "heartbeatTime" : 5000,
                 "retryTime" : 1000
@@ -159,7 +162,7 @@ func Setup(filename string) *lb.Server {
 
 		for _, backendConfig := range frontendConfig.Backends {
 			backend := endpoint.NewBackend(backendConfig.Name, backendConfig.Address, backendConfig.Heartbeat,
-				backendConfig.HBMethod, backendConfig.InactiveAfter, backendConfig.HeartbeatTime,
+				backendConfig.HBMethod, backendConfig.ActiveAfter, backendConfig.InactiveAfter, backendConfig.HeartbeatTime,
 				backendConfig.RetryTime)
 			frontend.AddBackend(backend)
 		}
