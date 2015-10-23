@@ -26,9 +26,11 @@ func preProcessWorker(frontend *endpoint.Frontend) *endpoint.Backend {
 	backendsSlice := []*endpoint.Backend{}
 
 	for _, backend := range frontend.Backends {
+		backend.Mutex.Lock()
 		if backend.Active && !backend.Failed {
 			backendsSlice = append(backendsSlice, backend)
 		}
+		backend.Mutex.Unlock()
 	}
 
 	sort.Sort(endpoint.ByScore(backendsSlice))
@@ -53,7 +55,7 @@ func (w *Worker) Run(r *http.Request, frontend *endpoint.Frontend) request.SSLBR
 		if backend != nil {
 			w.DPool.Get(backend, r, chanReceiver)
 		} else {
-			chanReceiver <- request.NewWorkerRequestErr(500, []byte("No backend available"))
+			chanReceiver <- request.NewWorkerRequestErr(http.StatusRequestTimeout, []byte("No backend available"))
 		}
 
 		w.Mutex.Lock()

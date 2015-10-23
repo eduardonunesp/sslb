@@ -21,8 +21,6 @@ func NewDispatcher() *Dispatcher {
 }
 
 func processReturn(result *http.Response) request.SSLBRequest {
-	defer result.Body.Close()
-
 	body, err := ioutil.ReadAll(result.Body)
 	if err != nil {
 		return request.NewWorkerRequest(http.StatusInternalServerError, result.Header, []byte(err.Error()))
@@ -35,8 +33,10 @@ func execRequest(address string, r *http.Request) request.SSLBRequest {
 	var httpRequest *http.Request
 	var err error
 
+	requestAddress := address + r.URL.String()
+
 	client := &http.Client{}
-	httpRequest, err = http.NewRequest(r.Method, address, r.Body)
+	httpRequest, err = http.NewRequest(r.Method, requestAddress, r.Body)
 
 	for k, vv := range r.Header {
 		for _, v := range vv {
@@ -45,9 +45,10 @@ func execRequest(address string, r *http.Request) request.SSLBRequest {
 	}
 
 	response, err := client.Do(httpRequest)
+	defer response.Body.Close()
 
 	if err != nil {
-		return request.NewWorkerRequestErr(http.StatusInternalServerError, []byte(err.Error()))
+		return request.NewWorkerRequestErr(http.StatusRequestTimeout, []byte("No backend available"))
 	}
 
 	if response == nil {
