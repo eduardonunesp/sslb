@@ -49,6 +49,13 @@ func (wp *WorkerPool) Get(r *http.Request, frontend *endpoint.Frontend) request.
 			worker.Mutex.Unlock()
 		}
 
+		if idleWorker == nil {
+			idleWorker = NewWorker(wp.DPPool)
+			idleWorker.Mutex.Lock()
+			idleWorker.Idle = false
+			idleWorker.Mutex.Unlock()
+		}
+
 		if idleWorker != nil {
 			break
 		}
@@ -95,6 +102,13 @@ func (dp *DispatcherPool) Get(backend *endpoint.Backend, r *http.Request, chanRe
 				break
 			}
 			dispatcher.Mutex.Unlock()
+		}
+
+		if idleDispatcher == nil {
+			idleDispatcher = NewDispatcher()
+			idleDispatcher.Mutex.Lock()
+			idleDispatcher.Idle = false
+			idleDispatcher.Mutex.Unlock()
 		}
 
 		if idleDispatcher != nil {
