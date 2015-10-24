@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/eduardonunesp/sslb/lb/endpoint"
@@ -20,14 +21,22 @@ var (
 )
 
 type Server struct {
+	Ch        chan bool
 	Frontends endpoint.Frontends
 	WPool     *worker.WorkerPool
+	WaitGroup *sync.WaitGroup
 }
 
 func NewServer(workerPoolSize, dispatcherPoolSize int) *Server {
 	// Config the pool size for workers and dispatchers
 	wp := worker.NewWorkerPool(workerPoolSize, dispatcherPoolSize)
-	return &Server{WPool: wp}
+	s := &Server{
+		Ch:        make(chan bool),
+		WPool:     wp,
+		WaitGroup: &sync.WaitGroup{},
+	}
+
+	return s
 }
 
 // Some previous checkings before run
@@ -79,6 +88,9 @@ func (s *Server) RunFrontendServer(frontend *endpoint.Frontend) {
 	httpHandle := http.NewServeMux()
 
 	httpHandle.HandleFunc(frontend.Route, func(w http.ResponseWriter, r *http.Request) {
+		s.WaitGroup.Add(1)
+		defer s.WaitGroup.Done()
+
 		// On a serious problem
 		defer func() {
 			if rec := recover(); rec != nil {
@@ -130,6 +142,11 @@ func (s *Server) RunFrontendServer(frontend *endpoint.Frontend) {
 	server.ListenAndServe()
 }
 
+func (s *Server) Stop() {
+	close(s.Ch)
+	s.WaitGroup.Wait()
+}
+
 func (s *Server) Run() {
 	if len(s.Frontends) == 0 {
 		log.Fatal(errNoFrontend.Error())
@@ -137,6 +154,6 @@ func (s *Server) Run() {
 
 	// Run the fronend config
 	for _, frontend := range s.Frontends {
-		s.RunFrontendServer(frontend)
+		go s.RunFrontendServer(frontend)
 	}
 }
