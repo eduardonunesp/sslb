@@ -113,7 +113,8 @@ func (s *Server) RunFrontendServer(frontend *endpoint.Frontend) {
 				w.WriteHeader(result.Status)
 				w.Write(result.Body)
 			}
-
+		case <-r.Cancel:
+			// Request cancelled
 		// Timeout
 		case <-ticker.C:
 			http.Error(w, errTimeout.Error(), http.StatusRequestTimeout)

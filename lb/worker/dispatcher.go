@@ -71,7 +71,7 @@ func (d *Dispatcher) Run(backend *endpoint.Backend, r *http.Request, chanReceive
 		// On a serious problem
 		defer func() {
 			if rec := recover(); rec != nil {
-				// Channel not used
+				// Channel is closed can happen
 			}
 		}()
 
