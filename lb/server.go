@@ -110,8 +110,12 @@ func (s *Server) RunFrontendServer(frontend *endpoint.Frontend) {
 					}
 				}
 
-				w.WriteHeader(result.Status)
-				w.Write(result.Body)
+				if result.Upgraded {
+					result.HijackWebSocket(w, r)
+				} else {
+					w.WriteHeader(result.Status)
+					w.Write(result.Body)
+				}
 			}
 
 		// Timeout
