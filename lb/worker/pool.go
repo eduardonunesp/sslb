@@ -43,6 +43,8 @@ func (wp *WorkerPool) Get(r *http.Request, frontend *endpoint.Frontend) request.
 			if worker.Idle {
 				worker.Idle = false
 				idleWorker = worker
+				worker.Mutex.Unlock()
+				break
 			}
 			worker.Mutex.Unlock()
 		}
@@ -89,6 +91,8 @@ func (dp *DispatcherPool) Get(backend *endpoint.Backend, r *http.Request, chanRe
 			if dispatcher.Idle {
 				dispatcher.Idle = false
 				idleDispatcher = dispatcher
+				dispatcher.Mutex.Unlock()
+				break
 			}
 			dispatcher.Mutex.Unlock()
 		}

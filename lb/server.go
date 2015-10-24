@@ -79,8 +79,6 @@ func (s *Server) RunFrontendServer(frontend *endpoint.Frontend) {
 	httpHandle := http.NewServeMux()
 
 	httpHandle.HandleFunc(frontend.Route, func(w http.ResponseWriter, r *http.Request) {
-		r.Close = true
-
 		// On a serious problem
 		defer func() {
 			if rec := recover(); rec != nil {
@@ -93,6 +91,8 @@ func (s *Server) RunFrontendServer(frontend *endpoint.Frontend) {
 		// Get a channel the already attached to a worker
 		chanResponse := s.WPool.Get(r, frontend)
 		defer close(chanResponse)
+
+		r.Close = true
 
 		// Timeout ticker
 		ticker := time.NewTicker(frontend.Timeout)

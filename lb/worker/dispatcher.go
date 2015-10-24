@@ -21,6 +21,7 @@ func NewDispatcher() *Dispatcher {
 }
 
 func processReturn(result *http.Response) request.SSLBRequest {
+	defer result.Body.Close()
 	body, err := ioutil.ReadAll(result.Body)
 	if err != nil {
 		return request.NewWorkerRequest(http.StatusInternalServerError, result.Header, []byte(err.Error()))
@@ -45,7 +46,6 @@ func execRequest(address string, r *http.Request) request.SSLBRequest {
 	}
 
 	response, err := client.Do(httpRequest)
-	defer response.Body.Close()
 
 	if err != nil {
 		return request.NewWorkerRequestErr(http.StatusRequestTimeout, []byte("No backend available"))
@@ -67,7 +67,17 @@ func (d *Dispatcher) Run(backend *endpoint.Backend, r *http.Request, chanReceive
 	backend.Score++
 	backend.Mutex.Unlock()
 
-	chanReceiver <- execRequest(backend.Address, r)
+	go func(c request.SSLBRequestChan) {
+		// On a serious problem
+		defer func() {
+			if rec := recover(); rec != nil {
+				// Channel not used
+			}
+		}()
+
+		c <- execRequest(backend.Address, r)
+	}(chanReceiver)
+
 	d.Mutex.Lock()
 	d.Idle = true
 	d.Mutex.Unlock()
