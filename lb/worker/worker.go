@@ -55,7 +55,7 @@ func (w *Worker) Run(r *http.Request, frontend *endpoint.Frontend) request.SSLBR
 		if backend != nil {
 			w.DPool.Get(backend, r, chanReceiver)
 		} else {
-			chanReceiver <- request.NewWorkerRequestErr(http.StatusRequestTimeout, []byte("No backend available"))
+			chanReceiver <- request.NewWorkerRequestErr(http.StatusServiceUnavailable, []byte("Service Unavailable"))
 		}
 
 		w.Mutex.Lock()

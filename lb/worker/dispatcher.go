@@ -3,6 +3,7 @@ package worker
 import (
 	"io/ioutil"
 	"net/http"
+	"strings"
 	"sync"
 
 	"github.com/eduardonunesp/sslb/lb/endpoint"
@@ -30,9 +31,34 @@ func processReturn(result *http.Response) request.SSLBRequest {
 	return request.NewWorkerRequest(result.StatusCode, result.Header, []byte(body))
 }
 
+func checkForWebsocket(r *http.Request) bool {
+	result := false
+	connHDR := ""
+	connHDRS := r.Header["Connection"]
+
+	if len(connHDRS) > 0 {
+		connHDR = connHDRS[0]
+	}
+
+	if connHDR == "upgrade" || connHDR == "Upgrade" {
+		upgradeHDRS := r.Header["Upgrade"]
+		if len(upgradeHDRS) > 0 {
+			result = (strings.ToLower(upgradeHDRS[0]) == "websocket")
+		}
+	}
+
+	return result
+}
+
 func execRequest(address string, r *http.Request) request.SSLBRequest {
 	var httpRequest *http.Request
 	var err error
+
+	if checkForWebsocket(r) {
+		ret := request.NewWorkerRequestUpgraded()
+		ret.Address = address
+		return ret
+	}
 
 	requestAddress := address + r.URL.String()
 
@@ -55,7 +81,9 @@ func execRequest(address string, r *http.Request) request.SSLBRequest {
 		return request.NewWorkerRequestErr(http.StatusBadGateway, []byte("Method Not Supported By SSLB"))
 	}
 
-	return processReturn(response)
+	ret := processReturn(response)
+	ret.Address = address
+	return ret
 }
 
 func (d *Dispatcher) Run(backend *endpoint.Backend, r *http.Request, chanReceiver request.SSLBRequestChan) {
