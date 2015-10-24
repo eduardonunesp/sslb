@@ -1,4 +1,4 @@
-package endpoint
+package lb
 
 import (
 	"log"
@@ -7,26 +7,26 @@ import (
 	"time"
 )
 
-//TODO: Need to rebalance the score when backend back to active
+// BackendConfig it's the configuration loaded
+type BackendConfig struct {
+	Name      string `json:"name"`
+	Address   string `json:"address"`
+	Heartbeat string `json:"heartbeat"`
+	HBMethod  string `json:"hbmethod"`
 
-// Backend structure
-type Backend struct {
-	Mutex sync.Mutex
+	ActiveAfter   int `json:"activeAfter"`
+	InactiveAfter int `json:"inactiveAfter"` // Consider inactive after max inactiveAfter
+	Weight        int `json:"weigth"`
 
-	Name      string
-	Address   string
-	Heartbeat string
-	HBMethod  string
+	HeartbeatTime time.Duration `json:"heartbeatTime"` // Heartbeat time if health
+	RetryTime     time.Duration `json:"retryTime"`     // Retry to time after failed
+}
 
-	ActiveAfter   int
-	InactiveAfter int
-	// Consider inactive after max inactiveAfter
+type BackendsConfig []BackendConfig
 
-	HeartbeatTime time.Duration // Heartbeat time if health
-	RetryTime     time.Duration // Retry to time after failed
-
-	// The last request failed
-	Failed bool
+// BackendControl keep the control data
+type BackendControl struct {
+	Failed bool // The last request failed
 	Active bool
 
 	InactiveTries int
@@ -34,31 +34,25 @@ type Backend struct {
 	Score         int
 }
 
+// Backend structure
+type Backend struct {
+	BackendConfig
+	BackendControl
+	sync.RWMutex
+}
+
 type Backends []*Backend
 
-type ByScore []*Backend
+func NewBackend(backendConfig BackendConfig) *Backend {
+	backendConfig.HeartbeatTime = backendConfig.HeartbeatTime * time.Millisecond
+	backendConfig.RetryTime = backendConfig.RetryTime * time.Millisecond
 
-func (a ByScore) Len() int           { return len(a) }
-func (a ByScore) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
-func (a ByScore) Less(i, j int) bool { return a[i].Score < a[j].Score }
-
-func NewBackend(name, address, heartbeat, hbmethod string,
-	activeAfter, inactiveAfter, heartbeatTime, retryTime int) *Backend {
 	return &Backend{
-		Name:      name,
-		Address:   address,
-		Heartbeat: heartbeat,
-		HBMethod:  hbmethod,
-
-		ActiveAfter:   activeAfter,
-		InactiveAfter: inactiveAfter,
-		HeartbeatTime: time.Duration(heartbeatTime) * time.Millisecond,
-		RetryTime:     time.Duration(retryTime) * time.Millisecond,
-
-		Failed:        true,
-		Active:        true,
-		InactiveTries: 0,
-		Score:         0,
+		BackendConfig: backendConfig,
+		BackendControl: BackendControl{
+			true, false,
+			0, 0, 0,
+		},
 	}
 }
 
@@ -75,7 +69,7 @@ func (b *Backend) HeartCheck() {
 
 			resp, err := client.Do(request)
 			if err != nil || resp.StatusCode >= 400 {
-				b.Mutex.Lock()
+				b.RWMutex.Lock()
 				// Max tries before consider inactive
 				if b.InactiveTries >= b.InactiveAfter {
 					log.Printf("Backend inactive [%s]", b.Name)
@@ -87,12 +81,12 @@ func (b *Backend) HeartCheck() {
 					b.InactiveTries++
 					log.Printf("Error to check address [%s] name [%s] tries [%d]", b.Heartbeat, b.Name, b.InactiveTries)
 				}
-				b.Mutex.Unlock()
+				b.RWMutex.Unlock()
 			} else {
 				defer resp.Body.Close()
 
 				// Ok, let's keep working boys
-				b.Mutex.Lock()
+				b.RWMutex.Lock()
 				if b.ActiveTries >= b.ActiveAfter {
 					if b.Failed {
 						log.Printf("Backend active [%s]", b.Name)
@@ -104,7 +98,7 @@ func (b *Backend) HeartCheck() {
 				} else {
 					b.ActiveTries++
 				}
-				b.Mutex.Unlock()
+				b.RWMutex.Unlock()
 			}
 
 			if b.Failed {
