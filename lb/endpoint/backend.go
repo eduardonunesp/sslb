@@ -11,7 +11,7 @@ import (
 
 // Backend structure
 type Backend struct {
-	Mutex sync.Mutex
+	RWMutex sync.RWMutex
 
 	Name      string
 	Address   string
@@ -75,7 +75,7 @@ func (b *Backend) HeartCheck() {
 
 			resp, err := client.Do(request)
 			if err != nil || resp.StatusCode >= 400 {
-				b.Mutex.Lock()
+				b.RWMutex.Lock()
 				// Max tries before consider inactive
 				if b.InactiveTries >= b.InactiveAfter {
 					log.Printf("Backend inactive [%s]", b.Name)
@@ -87,12 +87,12 @@ func (b *Backend) HeartCheck() {
 					b.InactiveTries++
 					log.Printf("Error to check address [%s] name [%s] tries [%d]", b.Heartbeat, b.Name, b.InactiveTries)
 				}
-				b.Mutex.Unlock()
+				b.RWMutex.Unlock()
 			} else {
 				defer resp.Body.Close()
 
 				// Ok, let's keep working boys
-				b.Mutex.Lock()
+				b.RWMutex.Lock()
 				if b.ActiveTries >= b.ActiveAfter {
 					if b.Failed {
 						log.Printf("Backend active [%s]", b.Name)
@@ -104,7 +104,7 @@ func (b *Backend) HeartCheck() {
 				} else {
 					b.ActiveTries++
 				}
-				b.Mutex.Unlock()
+				b.RWMutex.Unlock()
 			}
 
 			if b.Failed {

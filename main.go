@@ -1,49 +1,17 @@
 package main
 
 import (
-	"io/ioutil"
-	"log"
 	"os"
-	"os/signal"
-	"syscall"
 
 	"github.com/eduardonunesp/sslb/Godeps/_workspace/src/github.com/codegangsta/cli"
-	"github.com/eduardonunesp/sslb/cfg"
 )
 
-const APP_NAME = "sslb (SUPER SIMPLE LOAD BALANCER)"
+const APP_NAME = "SSLB (github.com/eduardonunesp/sslb)"
 const APP_USAGE = "sslb"
 const VERSION_MAJOR = "0"
-const VERSION_MINOR = "0"
-const VERSION_BUILD = "4"
+const VERSION_MINOR = "1"
+const VERSION_BUILD = "0"
 const CONFIG_FILENAME = "config.json.example"
-
-func RunServer(c *cli.Context) {
-	if !c.Bool("verbose") {
-		log.SetOutput(ioutil.Discard)
-	}
-
-	if c.Bool("config") {
-		cfg.CreateConfig(CONFIG_FILENAME)
-		os.Exit(0)
-	}
-
-	filename := "config.json"
-	if c.String("filename") != "" {
-		filename = c.String("filename")
-	}
-
-	// The function setup do everything for configure
-	// and return the server ready to run
-	server := cfg.Setup(filename)
-	server.Run()
-
-	ch := make(chan os.Signal)
-	signal.Notify(ch, syscall.SIGINT, syscall.SIGTERM)
-	log.Println(<-ch)
-
-	server.Stop()
-}
 
 func main() {
 	app := cli.NewApp()
@@ -60,6 +28,15 @@ func main() {
 		cli.StringFlag{
 			Name:  "filename, f",
 			Usage: "set the filename as the configuration",
+		},
+	}
+
+	app.Commands = []cli.Command{
+		{
+			Name:    "status",
+			Aliases: []string{"s"},
+			Usage:   "Return the internal status",
+			Action:  InternalStatus,
 		},
 	}
 

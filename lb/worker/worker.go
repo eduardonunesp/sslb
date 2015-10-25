@@ -2,7 +2,6 @@ package worker
 
 import (
 	"net/http"
-	"sort"
 	"sync"
 
 	"github.com/eduardonunesp/sslb/lb/endpoint"
@@ -23,24 +22,24 @@ func NewWorker(dp *DispatcherPool) *Worker {
 
 // Search for backend with the less score
 func preProcessWorker(frontend *endpoint.Frontend) *endpoint.Backend {
-	backendsSlice := []*endpoint.Backend{}
+	frontend.Mutex.Lock()
+	defer frontend.Mutex.Unlock()
 
-	for _, backend := range frontend.Backends {
-		backend.Mutex.Lock()
-		if backend.Active && !backend.Failed {
-			backendsSlice = append(backendsSlice, backend)
+	var backendWithMinScore *endpoint.Backend
+
+	for idx, backend := range frontend.Backends {
+		backend.RWMutex.RLock()
+		if idx == 0 {
+			backendWithMinScore = backend
+		} else {
+			if backend.Score < backendWithMinScore.Score {
+				backendWithMinScore = backend
+			}
 		}
-		backend.Mutex.Unlock()
+		backend.RWMutex.RUnlock()
 	}
 
-	sort.Sort(endpoint.ByScore(backendsSlice))
-
-	var backend *endpoint.Backend
-	if len(backendsSlice) > 0 {
-		backend = backendsSlice[0]
-	}
-
-	return backend
+	return backendWithMinScore
 }
 
 func (w *Worker) Run(r *http.Request, frontend *endpoint.Frontend) request.SSLBRequestChan {
@@ -49,10 +48,14 @@ func (w *Worker) Run(r *http.Request, frontend *endpoint.Frontend) request.SSLBR
 	w.Mutex.Unlock()
 
 	chanReceiver := make(request.SSLBRequestChan)
-	go func(w *Worker, chanReceiver request.SSLBRequestChan, frontend *endpoint.Frontend) {
-		backend := preProcessWorker(frontend)
+	go func(w *Worker, chanReceiver request.SSLBRequestChan, f *endpoint.Frontend) {
+		backend := preProcessWorker(f)
 
 		if backend != nil {
+			backend.RWMutex.Lock()
+			backend.Score++
+			backend.RWMutex.Unlock()
+
 			w.DPool.Get(backend, r, chanReceiver)
 		} else {
 			chanReceiver <- request.NewWorkerRequestErr(http.StatusServiceUnavailable, []byte("Service Unavailable"))

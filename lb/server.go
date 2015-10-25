@@ -21,6 +21,7 @@ var (
 )
 
 type Server struct {
+	Mutex     sync.Mutex
 	Ch        chan bool
 	Frontends endpoint.Frontends
 	WPool     *worker.WorkerPool
@@ -88,11 +89,16 @@ func (s *Server) RunFrontendServer(frontend *endpoint.Frontend) {
 	httpHandle := http.NewServeMux()
 
 	httpHandle.HandleFunc(frontend.Route, func(w http.ResponseWriter, r *http.Request) {
+		s.Mutex.Lock()
 		s.WaitGroup.Add(1)
-		defer s.WaitGroup.Done()
+		s.Mutex.Unlock()
 
 		// On a serious problem
 		defer func() {
+			s.Mutex.Lock()
+			s.WaitGroup.Done()
+			s.Mutex.Unlock()
+
 			if rec := recover(); rec != nil {
 				log.Println("Err", rec)
 				http.Error(w, http.StatusText(http.StatusInternalServerError),
@@ -143,7 +149,10 @@ func (s *Server) RunFrontendServer(frontend *endpoint.Frontend) {
 		Handler: httpHandle,
 	}
 
-	server.ListenAndServe()
+	err := server.ListenAndServe()
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 
 func (s *Server) Stop() {

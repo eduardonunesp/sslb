@@ -32,8 +32,24 @@ func (wp *WorkerPool) createPool() {
 	}
 }
 
+func (wp *WorkerPool) CountIdle() int {
+	count := 0
+
+	for _, worker := range wp.Workers {
+		worker.Mutex.Lock()
+		if worker.Idle {
+			count++
+		}
+		worker.Mutex.Unlock()
+	}
+
+	return count
+}
+
 func (wp *WorkerPool) Get(r *http.Request, frontend *endpoint.Frontend) request.SSLBRequestChan {
 	wp.Mutex.Lock()
+	defer wp.Mutex.Unlock()
+
 	var idleWorker *Worker
 
 	for {
@@ -64,7 +80,6 @@ func (wp *WorkerPool) Get(r *http.Request, frontend *endpoint.Frontend) request.
 	}
 
 	c := idleWorker.Run(r, frontend)
-	wp.Mutex.Unlock()
 	return c
 }
 
@@ -88,8 +103,24 @@ func (dp *DispatcherPool) createPool() {
 	}
 }
 
+func (dp *DispatcherPool) CountIdle() int {
+	count := 0
+
+	for _, dispatcher := range dp.Dispatchers {
+		dispatcher.Mutex.Lock()
+		if dispatcher.Idle {
+			count++
+		}
+		dispatcher.Mutex.Unlock()
+	}
+
+	return count
+}
+
 func (dp *DispatcherPool) Get(backend *endpoint.Backend, r *http.Request, chanReceiver request.SSLBRequestChan) {
 	dp.Mutex.Lock()
+	defer dp.Mutex.Unlock()
+
 	var idleDispatcher *Dispatcher
 
 	for {
@@ -119,5 +150,4 @@ func (dp *DispatcherPool) Get(backend *endpoint.Backend, r *http.Request, chanRe
 	}
 
 	idleDispatcher.Run(backend, r, chanReceiver)
-	dp.Mutex.Unlock()
 }

@@ -91,10 +91,6 @@ func (d *Dispatcher) Run(backend *endpoint.Backend, r *http.Request, chanReceive
 	d.Idle = false
 	d.Mutex.Unlock()
 
-	backend.Mutex.Lock()
-	backend.Score++
-	backend.Mutex.Unlock()
-
 	go func(c request.SSLBRequestChan) {
 		// On a serious problem
 		defer func() {

@@ -1,6 +1,9 @@
 package endpoint
 
-import "time"
+import (
+	"sync"
+	"time"
+)
 
 const (
 	// StrategyRoundRobin is the strategy available for now
@@ -9,6 +12,8 @@ const (
 
 // Frontend structure
 type Frontend struct {
+	Mutex sync.Mutex
+
 	Name  string
 	Host  string
 	Port  int
