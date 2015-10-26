@@ -5,10 +5,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"sync"
 	"time"
-
-	"github.com/eduardonunesp/sslb/lb/endpoint"
-	"github.com/eduardonunesp/sslb/lb/worker"
 )
 
 var (
@@ -19,19 +17,44 @@ var (
 	errRouteExists = errors.New("Route already in use")
 )
 
+type ShutdownChan chan bool
+
 type Server struct {
-	Frontends endpoint.Frontends
-	WPool     *worker.WorkerPool
+	Configuration
+	Frontends
+	ShutdownChan
+	*WorkerPool
+
+	sync.Mutex
+	*sync.WaitGroup
 }
 
-func NewServer(workerPoolSize, dispatcherPoolSize int) *Server {
-	// Config the pool size for workers and dispatchers
-	wp := worker.NewWorkerPool(workerPoolSize, dispatcherPoolSize)
-	return &Server{WPool: wp}
+func NewServer(configuration Configuration) *Server {
+	return &Server{
+		Configuration: configuration,
+		ShutdownChan:  make(ShutdownChan),
+		WaitGroup:     &sync.WaitGroup{},
+		WorkerPool:    NewWorkerPool(configuration),
+	}
+}
+
+func (s *Server) setup() {
+	for _, frontend := range s.Configuration.FrontendsConfig {
+		newFrontend := NewFrontend(frontend)
+		for _, backend := range frontend.BackendsConfig {
+			newFrontend.Backends = append(newFrontend.Backends, NewBackend(backend))
+		}
+
+		if err := s.preChecksBeforeAdd(newFrontend); err != nil {
+			log.Fatal(err.Error())
+		} else {
+			s.Frontends = append(s.Frontends, newFrontend)
+		}
+	}
 }
 
 // Some previous checkings before run
-func (s *Server) preChecksBeforeAdd(newFrontend *endpoint.Frontend) error {
+func (s *Server) preChecksBeforeAdd(newFrontend *Frontend) error {
 	for _, frontend := range s.Frontends {
 		if frontend.Route == newFrontend.Route {
 			return errRouteExists
@@ -49,17 +72,8 @@ func (s *Server) preChecksBeforeAdd(newFrontend *endpoint.Frontend) error {
 	return nil
 }
 
-func (s *Server) AddFrontend(frontend *endpoint.Frontend) {
-	err := s.preChecksBeforeAdd(frontend)
-	if err != nil {
-		log.Fatal(err.Error())
-	}
-
-	s.Frontends = append(s.Frontends, frontend)
-}
-
 // Lets run the frontned
-func (s *Server) RunFrontendServer(frontend *endpoint.Frontend) {
+func (s *Server) RunFrontendServer(frontend *Frontend) {
 	if len(frontend.Backends) == 0 {
 		log.Fatal(errNoBackend.Error())
 	}
@@ -79,6 +93,10 @@ func (s *Server) RunFrontendServer(frontend *endpoint.Frontend) {
 	httpHandle := http.NewServeMux()
 
 	httpHandle.HandleFunc(frontend.Route, func(w http.ResponseWriter, r *http.Request) {
+		s.Lock()
+		s.Add(1)
+		s.Unlock()
+
 		// On a serious problem
 		defer func() {
 			if rec := recover(); rec != nil {
@@ -89,7 +107,7 @@ func (s *Server) RunFrontendServer(frontend *endpoint.Frontend) {
 		}()
 
 		// Get a channel the already attached to a worker
-		chanResponse := s.WPool.Get(r, frontend)
+		chanResponse := s.Get(r, frontend)
 		defer close(chanResponse)
 
 		r.Close = true
@@ -101,21 +119,35 @@ func (s *Server) RunFrontendServer(frontend *endpoint.Frontend) {
 		select {
 		case result := <-chanResponse:
 			// We have a response, it's valid ?
-			if result.Internal {
-				http.Error(w, string(result.Body), result.Status)
-			} else {
-				for k, vv := range result.Header {
-					for _, v := range vv {
-						w.Header().Set(k, v)
-					}
+			for k, vv := range result.Header {
+				for _, v := range vv {
+					w.Header().Set(k, v)
 				}
+			}
 
+			s.Lock()
+			s.Done()
+			s.Unlock()
+
+			if result.Upgraded {
+				if s.Configuration.GeneralConfig.Websocket {
+					result.HijackWebSocket(w, r)
+				}
+			} else {
 				w.WriteHeader(result.Status)
 				w.Write(result.Body)
 			}
+		case <-r.Cancel:
+			s.Lock()
+			s.Done()
+			s.Unlock()
 
-		// Timeout
 		case <-ticker.C:
+			s.Lock()
+			s.Done()
+			s.Unlock()
+
+			// Timeout
 			http.Error(w, errTimeout.Error(), http.StatusRequestTimeout)
 		}
 	})
@@ -126,16 +158,34 @@ func (s *Server) RunFrontendServer(frontend *endpoint.Frontend) {
 		Handler: httpHandle,
 	}
 
-	server.ListenAndServe()
+	err := server.ListenAndServe()
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 
 func (s *Server) Run() {
+	log.Println("Setup and check configuration")
+	s.setup()
+
 	if len(s.Frontends) == 0 {
 		log.Fatal(errNoFrontend.Error())
 	}
 
+	log.Println("Setup ok ...")
+
 	// Run the fronend config
 	for _, frontend := range s.Frontends {
-		s.RunFrontendServer(frontend)
+		go s.RunFrontendServer(frontend)
 	}
+}
+
+func (s *Server) Stop() {
+	if s.Configuration.GeneralConfig.GracefulShutdown {
+		log.Println("Wait for graceful shutdown")
+		s.Wait()
+		log.Println("Bye")
+	}
+
+	close(s.ShutdownChan)
 }

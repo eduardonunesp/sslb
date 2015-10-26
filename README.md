@@ -1,6 +1,21 @@
-# SSLB (Super Simple Load Balancer)
+# SSLB (Super Simple Load Balancer) ver 0.1.0
 
 It's a Super Simples Load Balancer, just a little project to achieve some kind of performance.
+
+## Features
+ * High availability (improving with time the speed)
+ * Support to WebSockets
+ * Monitoring the internal state (improving)
+ * Really easy to configure, just a little JSON file
+
+## Next features
+ * Manage configurations in runtime without downtime
+ * Complete internal status and diagnostics
+ * HTTP/2 support
+ * Cache 
+ * HTTPS support
+ 
+ If you have any suggestion don't hesitate to open an issue, pull requests are welcome too.
 
 ## Install
 
@@ -19,20 +34,20 @@ Type `sslb -h` for the command line help
 ```
 sslb -h                                                                                                                                                              
 NAME:
-   sslb (SUPER SIMPLE LOAD BALANCER) - sslb
+   SSLB (github.com/eduardonunesp/sslb) - sslb
 
 USAGE:
    sslb [global options] command [command options] [arguments...]
 
 VERSION:
-   0.0.4
+   0.1.0
 
 COMMANDS:
+   status, s	Return the internal status
    help, h	Shows a list of commands or help for one command
 
 GLOBAL OPTIONS:
    --verbose, -b	activate the verbose output
-   --config, -c		create an example of config file
    --filename, -f 	set the filename as the configuration
    --help, -h		show help
    --version, -v	print the version
@@ -42,34 +57,43 @@ After the configuration file completed you can type only `sslb -b` to start SSLB
 
 ```
 sslb -b                                                                                                                                                               
-2015/10/22 12:22:24 4 CPUS available, using only 4
-2015/10/22 12:22:24 Create dispatcher pool with [10]
-2015/10/22 12:22:24 Create worker pool with [10]
-2015/10/22 12:22:24 Run frontend server [Front1] at [0.0.0.0:80]
-2015/10/22 12:22:24 Backend active [Backend 2]
-2015/10/22 12:22:24 Backend active [Backend 2]
+2015/10/25 22:58:33 Start SSLB (Server)
+2015/10/25 22:58:33 Create worker pool with [1000]
+2015/10/25 22:58:33 Prepare to run server ...
+2015/10/25 22:58:33 Setup and check configuration
+2015/10/25 22:58:33 Setup ok ...
+2015/10/25 22:58:33 Run frontend server [Front1] at [0.0.0.0:80]
+2015/10/25 22:58:34 Backend active [Backend 1]
+2015/10/25 22:58:34 Backend active [Backend 2]
+2015/10/25 22:58:34 Backend active [Backend 3]
 ```
 
 ## Configuration options
 
 * general:
-	* maxProcs: Number of processors used by Go runtime
-	* workerPoolSize: Number of workers for processing request
-	* dispatcherPoolSize: Number of dispatchers for send the requests to the backends	
+	* maxProcs: Number of processors used by Go runtime (default: Number of CPUS)
+	* workerPoolSize: Number of workers for processing request (default: 10)
+	* gracefulShutdown: Wait for the last connection closed, before shutdown (default: true)
+	* websocket: Ready for respond websocket connections (default: true)
+	* rpchost: Address to expose the internal state (default: 127.0.0.1)
+	* rpcport: Port to expose the internal state (default: 42555)
+	
 * frontends:
-	* name: Just a identifier to your front server
-	* host: Host address that serves the HTTP front
-	* port: Port address that serves the HTTP front
-	* route: Route to receive the traffic
-	* timeout: How long can wait for the result (ms) from the backend
+	* name: Just a identifier to your front server (required)
+	* host: Host address that serves the HTTP front (required)
+	* port: Port address that serves the HTTP front (required)
+	* route: Route to receive the traffic (required)
+	* timeout: How long can wait for the result (ms) from the backend (default: 30000ms)
 
 * backends:
-	* name: Just a identifier
-	* address: Address (URL) for your backend
-	* hearbeat: Addres to send Head request to test if it's ok
-	* inactiveAfter: Consider the backend inactive after
-	* heartbeatTime: The interval to send a "ping"
-	* retryTime: The interval to send a "ping" after the first failed "ping"
+	* name: Just a identifier (required)
+	* address: Address (URL) for your backend (required)
+	* hearbeat: Addres to send Head request to test if it's ok (required)
+	* hbmethod: Method used in request to check the heartbeat (default: HEAD)
+	* inactiveAfter: Consider the backend inactive after the number of checks (default: 3)
+	* activeAfter: COnsider the backend active after the number of checks (default: 1)
+	* heartbeatTime: The interval to send a "ping" (default: 30000ms)
+	* retryTime: The interval to send a "ping" after the first failed "ping" (default: 5000ms)
 	
 ### Example (config.json)
 
@@ -78,7 +102,6 @@ sslb -b
     "general": {
         "maxProcs": 4,
         "workerPoolSize": 10,
-        "dispatcherPoolSize": 10
     },
     
     "frontends" : [

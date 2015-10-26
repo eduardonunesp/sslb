@@ -5,47 +5,12 @@ import (
 	"io/ioutil"
 	"log"
 	"runtime"
+	"time"
 
 	"github.com/eduardonunesp/sslb/lb"
-	"github.com/eduardonunesp/sslb/lb/endpoint"
 )
 
-// General config
-type General struct {
-	MaxProcs           int
-	WorkerPoolSize     int
-	DispatcherPoolSize int
-}
-
-// Backend config
-type Backend struct {
-	Name          string
-	Address       string
-	Heartbeat     string
-	HBMethod      string
-	ActiveAfter   int
-	InactiveAfter int
-	HeartbeatTime int
-	RetryTime     int
-}
-
-// Frontend config
-type Frontend struct {
-	Name     string
-	Host     string
-	Port     int
-	Route    string
-	Timeout  int
-	Backends []Backend
-}
-
 const DEFAULT_FILENAME = "config.json"
-
-// Config structured used to build the server
-type Config struct {
-	General   General
-	Frontends []Frontend
-}
 
 func openFile(filename string) []byte {
 	var file []byte
@@ -79,10 +44,38 @@ func openFile(filename string) []byte {
 }
 
 // ConfParser to Parse JSON FILE
-func ConfParser(filename string) Config {
-	file := openFile(filename)
+func ConfParser(file []byte) lb.Configuration {
+	if err := Validate(file); err != nil {
+		log.Fatal("Can't validate config.json ", err)
+	}
 
-	var jsonConfig Config
+	jsonConfig := lb.Configuration{
+		GeneralConfig: lb.GeneralConfig{
+			MaxProcs:         runtime.NumCPU(),
+			WorkerPoolSize:   10,
+			GracefulShutdown: true,
+			Websocket:        true,
+			LogLevel:         "info",
+			RPCHost:          "127.0.0.1",
+			RPCPort:          42555,
+		},
+		FrontendsConfig: []lb.FrontendConfig{
+			{
+				Timeout: time.Millisecond * 30000,
+				BackendsConfig: []lb.BackendConfig{
+					{
+						HBMethod:      "HEAD",
+						ActiveAfter:   1,
+						InactiveAfter: 3,
+						Weight:        1,
+						HeartbeatTime: time.Millisecond * 30000,
+						RetryTime:     time.Millisecond * 5000,
+					},
+				},
+			},
+		},
+	}
+
 	err := json.Unmarshal(file, &jsonConfig)
 
 	if err != nil {
@@ -92,83 +85,8 @@ func ConfParser(filename string) Config {
 	return jsonConfig
 }
 
-func CreateConfig(filename string) {
-	configExample := []byte(`{
-    "general": {
-        "maxProcs": 4,
-        "workerPoolSize": 1000,
-        "dispatcherPoolSize": 1000
-    },
-
-    "frontends" : [{
-        "name" : "Frontend App",
-        "host" : "0.0.0.0",
-        "port" : 80,
-        "route" : "/",
-        "timeout" : 5000,
-
-        "backends" : [
-            {
-                "name" : "Backend 1",
-                "address" : "http://127.0.0.1:9001",
-                "heartbeat" : "http://127.0.0.1:9001/heartbeat",
-                "inactiveAfter" : 3,
-                "heartbeatTime" : 15000,
-                "retryTime" : 1000
-            },{
-                "name" : "Backend 2",
-                "address" : "http://127.0.0.1:9002",
-                "heartbeat" : "http://127.0.0.1:9002/heartbeat",
-                "hbmethod" : "HEAD",
-                "inactiveAfter" : 3,
-                "activeAfter" : 1,
-                "heartbeatTime" : 15000,
-                "retryTime" : 1000
-            },{
-                "name" : "Backend 3",
-                "address" : "http://127.0.0.1:9003",
-                "heartbeat" : "http://127.0.0.1:9003/heartbeat",
-                "hbmethod" : "HEAD",
-                "activeAfter" : 1,
-                "inactiveAfter" : 1,
-                "heartbeatTime" : 5000,
-                "retryTime" : 1000
-            }
-        ]
-    }]
-}`)
-
-	err := ioutil.WriteFile(filename, configExample, 0644)
-	if err != nil {
-		log.Fatal("Can't create file config.json example", err)
-	}
-}
-
 // Setup will build everything and let the server run
-func Setup(filename string) *lb.Server {
-	config := ConfParser(filename)
-
-	cpus := runtime.NumCPU()
-	log.Printf("%d CPUS available, using only %d", cpus, config.General.MaxProcs)
-
-	runtime.GOMAXPROCS(config.General.MaxProcs)
-
-	server := lb.NewServer(config.General.WorkerPoolSize, config.General.DispatcherPoolSize)
-
-	for _, frontendConfig := range config.Frontends {
-		frontend := endpoint.NewFrontend(
-			frontendConfig.Name, frontendConfig.Host,
-			frontendConfig.Port, frontendConfig.Route, frontendConfig.Timeout)
-
-		for _, backendConfig := range frontendConfig.Backends {
-			backend := endpoint.NewBackend(backendConfig.Name, backendConfig.Address, backendConfig.Heartbeat,
-				backendConfig.HBMethod, backendConfig.ActiveAfter, backendConfig.InactiveAfter, backendConfig.HeartbeatTime,
-				backendConfig.RetryTime)
-			frontend.AddBackend(backend)
-		}
-
-		server.AddFrontend(frontend)
-	}
-
-	return server
+func Setup(filename string) lb.Configuration {
+	file := openFile(filename)
+	return ConfParser(file)
 }
