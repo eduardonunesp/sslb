@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"runtime"
 	"sync"
 	"time"
 )
@@ -39,6 +40,8 @@ func NewServer(configuration Configuration) *Server {
 }
 
 func (s *Server) setup() {
+	runtime.GOMAXPROCS(s.Configuration.GeneralConfig.MaxProcs)
+
 	for _, frontend := range s.Configuration.FrontendsConfig {
 		newFrontend := NewFrontend(frontend)
 		for _, backend := range frontend.BackendsConfig {
@@ -135,7 +138,10 @@ func (s *Server) RunFrontendServer(frontend *Frontend) {
 				}
 			} else {
 				w.WriteHeader(result.Status)
-				w.Write(result.Body)
+
+				if r.Method != "HEAD" {
+					w.Write(result.Body)
+				}
 			}
 		case <-r.Cancel:
 			s.Lock()
