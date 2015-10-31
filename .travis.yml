@@ -1,0 +1,20 @@
+language: go
+
+go:
+    - 1.5
+    - tip
+
+os:
+    - linux
+    - osx
+
+install:
+    - go get github.com/codegangsta/cli
+    - go get github.com/olekukonko/tablewriter
+    - go get github.com/xeipuuv/gojsonpointer
+    - go get github.com/xeipuuv/gojsonreference
+    - go get github.com/xeipuuv/gojsonschema
+
+script:
+    - go test ./...
+    - go build
