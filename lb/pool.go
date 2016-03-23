@@ -44,14 +44,13 @@ func (wp *WorkerPool) CountIdle() int {
 	return count
 }
 
-func (wp *WorkerPool) Get(r *http.Request, frontend *Frontend) SSLBRequestChan {
+func (wp *WorkerPool) Get(r *http.Request, frontend *Frontend) SSLBRequest {
 	wp.Lock()
 	defer wp.Unlock()
 
 	var idleWorker *Worker
 
 	for {
-
 		for _, worker := range wp.Workers {
 			worker.Lock()
 			if worker.Idle {
@@ -77,6 +76,5 @@ func (wp *WorkerPool) Get(r *http.Request, frontend *Frontend) SSLBRequestChan {
 		time.Sleep(time.Millisecond)
 	}
 
-	c := idleWorker.Run(r, frontend)
-	return c
+	return idleWorker.Run(r, frontend)
 }

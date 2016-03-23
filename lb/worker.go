@@ -105,35 +105,19 @@ func preProcessWorker(frontend *Frontend) *Backend {
 	return backendWithMinScore
 }
 
-func (w *Worker) Run(r *http.Request, frontend *Frontend) SSLBRequestChan {
+func (w *Worker) Run(r *http.Request, frontend *Frontend) SSLBRequest {
 	w.Lock()
 	w.Idle = false
 	w.Unlock()
 
-	chanReceiver := make(SSLBRequestChan)
-	go func(w *Worker, c SSLBRequestChan, f *Frontend) {
-		defer func() {
-			if rec := recover(); rec != nil {
-				// Channel is closed can happen
-			}
-		}()
+	backend := preProcessWorker(frontend)
+	if backend != nil {
+		backend.Lock()
+		backend.Score++
+		backend.Unlock()
 
-		backend := preProcessWorker(f)
-
-		if backend != nil {
-			backend.Lock()
-			backend.Score++
-			backend.Unlock()
-
-			c <- execRequest(backend, r)
-		} else {
-			chanReceiver <- NewWorkerRequestErr(http.StatusServiceUnavailable, []byte("Service Unavailable"))
-		}
-
-		w.Lock()
-		w.Idle = true
-		w.Unlock()
-	}(w, chanReceiver, frontend)
-
-	return chanReceiver
+		return execRequest(backend, r)
+	} else {
+		return NewWorkerRequestErr(http.StatusServiceUnavailable, []byte("Service Unavailable"))
+	}
 }

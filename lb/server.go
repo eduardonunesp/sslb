@@ -43,6 +43,7 @@ func (s *Server) setup() {
 	runtime.GOMAXPROCS(s.Configuration.GeneralConfig.MaxProcs)
 
 	for _, frontend := range s.Configuration.FrontendsConfig {
+		_ = frontend
 		newFrontend := NewFrontend(frontend)
 		for _, backend := range frontend.BackendsConfig {
 			newFrontend.Backends = append(newFrontend.Backends, NewBackend(backend))
@@ -75,7 +76,7 @@ func (s *Server) preChecksBeforeAdd(newFrontend *Frontend) error {
 	return nil
 }
 
-// Lets run the frontned
+// Lets run the frontend
 func (s *Server) RunFrontendServer(frontend *Frontend) {
 	if len(frontend.Backends) == 0 {
 		log.Fatal(errNoBackend.Error())
@@ -109,53 +110,35 @@ func (s *Server) RunFrontendServer(frontend *Frontend) {
 			}
 		}()
 
-		// Get a channel the already attached to a worker
-		chanResponse := s.Get(r, frontend)
-		defer close(chanResponse)
-
+		bResponse := s.Get(r, frontend)
 		r.Close = true
 
 		// Timeout ticker
 		ticker := time.NewTicker(frontend.Timeout)
 		defer ticker.Stop()
 
-		select {
-		case result := <-chanResponse:
-			// We have a response, it's valid ?
-			for k, vv := range result.Header {
-				for _, v := range vv {
-					w.Header().Set(k, v)
-				}
+		// We have a response, it's valid ?
+		for k, vv := range bResponse.Header {
+			for _, v := range vv {
+				w.Header().Set(k, v)
 			}
-
-			s.Lock()
-			s.Done()
-			s.Unlock()
-
-			if result.Upgraded {
-				if s.Configuration.GeneralConfig.Websocket {
-					result.HijackWebSocket(w, r)
-				}
-			} else {
-				w.WriteHeader(result.Status)
-
-				if r.Method != "HEAD" {
-					w.Write(result.Body)
-				}
-			}
-		case <-r.Cancel:
-			s.Lock()
-			s.Done()
-			s.Unlock()
-
-		case <-ticker.C:
-			s.Lock()
-			s.Done()
-			s.Unlock()
-
-			// Timeout
-			http.Error(w, errTimeout.Error(), http.StatusRequestTimeout)
 		}
+
+		if bResponse.Upgraded {
+			if s.Configuration.GeneralConfig.Websocket {
+				bResponse.HijackWebSocket(w, r)
+			}
+		} else {
+			w.WriteHeader(bResponse.Status)
+
+			if r.Method != "HEAD" {
+				w.Write(bResponse.Body)
+			}
+		}
+
+		s.Lock()
+		s.Done()
+		s.Unlock()
 	})
 
 	// Config and start server
@@ -187,11 +170,11 @@ func (s *Server) Run() {
 }
 
 func (s *Server) Stop() {
-	if s.Configuration.GeneralConfig.GracefulShutdown {
-		log.Println("Wait for graceful shutdown")
-		s.Wait()
-		log.Println("Bye")
-	}
+	// if s.Configuration.GeneralConfig.GracefulShutdown {
+	// 	log.Println("Wait for graceful shutdown")
+	// 	s.Wait()
+	// 	log.Println("Bye")
+	// }
 
 	close(s.ShutdownChan)
 }
