@@ -44,7 +44,7 @@ func (wp *WorkerPool) CountIdle() int {
 	return count
 }
 
-func (wp *WorkerPool) Get(r *http.Request, frontend *Frontend) SSLBRequest {
+func (wp *WorkerPool) Get(r *http.Request, frontend *Frontend) *SSLBRequest {
 	wp.Lock()
 	defer wp.Unlock()
 

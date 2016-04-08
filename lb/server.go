@@ -170,11 +170,11 @@ func (s *Server) Run() {
 }
 
 func (s *Server) Stop() {
-	// if s.Configuration.GeneralConfig.GracefulShutdown {
-	// 	log.Println("Wait for graceful shutdown")
-	// 	s.Wait()
-	// 	log.Println("Bye")
-	// }
+	if s.Configuration.GeneralConfig.GracefulShutdown {
+		log.Println("Wait for graceful shutdown")
+		s.Wait()
+		log.Println("Bye")
+	}
 
 	close(s.ShutdownChan)
 }

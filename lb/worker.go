@@ -18,7 +18,7 @@ func NewWorker() *Worker {
 	return &Worker{Idle: true}
 }
 
-func processReturn(result *http.Response) SSLBRequest {
+func processReturn(result *http.Response) *SSLBRequest {
 	defer result.Body.Close()
 	body, err := ioutil.ReadAll(result.Body)
 	if err != nil {
@@ -47,7 +47,7 @@ func checkForWebsocket(r *http.Request) bool {
 	return result
 }
 
-func execRequest(backend *Backend, r *http.Request) SSLBRequest {
+func execRequest(backend *Backend, r *http.Request) *SSLBRequest {
 	var httpRequest *http.Request
 	var err error
 
@@ -105,7 +105,7 @@ func preProcessWorker(frontend *Frontend) *Backend {
 	return backendWithMinScore
 }
 
-func (w *Worker) Run(r *http.Request, frontend *Frontend) SSLBRequest {
+func (w *Worker) Run(r *http.Request, frontend *Frontend) *SSLBRequest {
 	w.Lock()
 	w.Idle = false
 	w.Unlock()

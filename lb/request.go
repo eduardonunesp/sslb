@@ -19,23 +19,23 @@ type SSLBRequest struct {
 
 type SSLBRequestChan chan SSLBRequest
 
-func NewWorkerRequestErr(status int, body []byte) SSLBRequest {
-	return SSLBRequest{
+func NewWorkerRequestErr(status int, body []byte) *SSLBRequest {
+	return &SSLBRequest{
 		Status: status,
 		Body:   body,
 	}
 }
 
-func NewWorkerRequest(status int, header http.Header, body []byte) SSLBRequest {
-	return SSLBRequest{
+func NewWorkerRequest(status int, header http.Header, body []byte) *SSLBRequest {
+	return &SSLBRequest{
 		Status: status,
 		Header: header,
 		Body:   body,
 	}
 }
 
-func NewWorkerRequestUpgraded() SSLBRequest {
-	return SSLBRequest{
+func NewWorkerRequestUpgraded() *SSLBRequest {
+	return &SSLBRequest{
 		Upgraded: true,
 	}
 }
