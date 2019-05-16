@@ -35,7 +35,7 @@ func CreateAPP() {
 			filename, err := getFilename(cmd)
 
 			if err != nil {
-				os.Exit(0)
+				os.Exit(1)
 				return
 			}
 
@@ -52,7 +52,7 @@ func CreateAPP() {
 			filename, err := getFilename(cmd)
 
 			if err != nil {
-				os.Exit(0)
+				os.Exit(1)
 				return
 			}
 
