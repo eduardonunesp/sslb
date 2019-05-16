@@ -6,7 +6,7 @@ import (
 	"log"
 	"strings"
 
-	"github.com/eduardonunesp/sslb/Godeps/_workspace/src/github.com/xeipuuv/gojsonschema"
+	"github.com/xeipuuv/gojsonschema"
 )
 
 // Generated at http://jsonschema.net/#/

@@ -10,11 +10,10 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/eduardonunesp/sslb/Godeps/_workspace/src/github.com/codegangsta/cli"
-	"github.com/eduardonunesp/sslb/Godeps/_workspace/src/github.com/olekukonko/tablewriter"
 	"github.com/eduardonunesp/sslb/cfg"
 	"github.com/eduardonunesp/sslb/lb"
 	sslbRPC "github.com/eduardonunesp/sslb/rpc"
+	"github.com/olekukonko/tablewriter"
 )
 
 const (
@@ -22,10 +21,9 @@ const (
 	CONFIG_FILENAME_EXAMPLE = "config.json.example"
 )
 
-func InternalStatus(c *cli.Context) {
-	filename := CONFIG_FILENAME
-	if c.String("filename") != "" {
-		filename = c.String("filename")
+func InternalStatus(filename string) {
+	if filename == "" {
+		filename = CONFIG_FILENAME
 	}
 
 	configuration := cfg.Setup(filename)
@@ -57,17 +55,17 @@ func InternalStatus(c *cli.Context) {
 	table.Render()
 }
 
-func RunServer(c *cli.Context) {
-	if !c.Bool("verbose") {
+func RunServer(verbose bool, filename string) {
+	if !verbose {
 		log.SetOutput(ioutil.Discard)
 	}
 
-	filename := CONFIG_FILENAME
-	if c.String("filename") != "" {
-		filename = c.String("filename")
+	if filename == "" {
+		filename = CONFIG_FILENAME
 	}
 
 	log.Println("Start SSLB (Server) ")
+	log.Println("Using config:", filename)
 
 	// The function setup do everything for configure
 	// and return the server ready to run
