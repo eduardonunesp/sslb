@@ -15,23 +15,28 @@ const (
 	versionBuild = "0"
 )
 
+func getFilename(cmd *cobra.Command) (string, error) {
+	fflags := cmd.Flags()
+
+	if fflags.Changed("filename") {
+		return fflags.GetString("filename")
+	}
+
+	return "", nil
+}
+
 func CreateAPP() {
 	var rootCmd = &cobra.Command{
 		Use: "sslb",
 		Run: func(cmd *cobra.Command, args []string) {
-			var verbose bool
-			var filename string
-			var err error
-
 			fflags := cmd.Flags()
-			verbose = fflags.Changed("verbose") == true
+			verbose := fflags.Changed("verbose") == true
 
-			if fflags.Changed("filename") {
-				filename, err = fflags.GetString("filename")
-				if err != nil {
-					os.Exit(0)
-					return
-				}
+			filename, err := getFilename(cmd)
+
+			if err != nil {
+				os.Exit(0)
+				return
 			}
 
 			RunServer(verbose, filename)
@@ -44,17 +49,11 @@ func CreateAPP() {
 	statusCommand := &cobra.Command{
 		Use: "status",
 		Run: func(cmd *cobra.Command, args []string) {
-			var filename string
-			var err error
+			filename, err := getFilename(cmd)
 
-			fflags := cmd.Flags()
-
-			if fflags.Changed("filename") {
-				filename, err = fflags.GetString("filename")
-				if err != nil {
-					os.Exit(0)
-					return
-				}
+			if err != nil {
+				os.Exit(0)
+				return
 			}
 
 			InternalStatus(filename)
