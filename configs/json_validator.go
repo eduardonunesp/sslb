@@ -1,11 +1,11 @@
-package cfg
+package configs
 
 import (
-	"errors"
 	"fmt"
 	"log"
 	"strings"
 
+	"github.com/pkg/errors"
 	"github.com/xeipuuv/gojsonschema"
 )
 
@@ -144,16 +144,21 @@ const ConfigSchema = `
 }
 `
 
-func Validate(file []byte) error {
+func validate(file []byte) error {
 	schemaLoader := gojsonschema.NewStringLoader(ConfigSchema)
 	schema, err := gojsonschema.NewSchema(schemaLoader)
 
-	documentLoader := gojsonschema.NewStringLoader(string(file))
+	if err != nil {
+		log.Fatalf("Cannot create new jsonschame: %v", err)
+	}
+
+	documentLoader := gojsonschema.NewBytesLoader(file)
 
 	result, err := schema.Validate(documentLoader)
+
 	if err != nil {
 		log.Println("Failed to validate", err.Error())
-		return err
+		return errors.Wrap(err, "failed to validate")
 	}
 
 	if !result.Valid() {
@@ -162,6 +167,7 @@ func Validate(file []byte) error {
 			e := fmt.Sprintf("%s", desc)
 			errs = append(errs, e)
 		}
+
 		res := strings.Join(errs, ",")
 		return errors.New(res)
 	}
