@@ -3,17 +3,17 @@
 It's a Super Simple Load Balancer, just a little project to achieve some kind of performance.
 
 ## Features
- * High availability (improving with time the speed)
  * Support to WebSockets
- * Monitoring the internal state (improving)
+ * Monitoring the internal state
  * Really easy to configure, just a little JSON file
+ * Constantly health checking backends
 
 ## Next features
  * Manage configurations in runtime without downtime
  * Complete internal status and diagnostics
  * HTTP/2 support
- * Cache 
  * HTTPS support
+ * Cache
  
  If you have any suggestion don't hesitate to open an issue, pull requests are welcome too.
 
@@ -56,7 +56,8 @@ GLOBAL OPTIONS:
 After the configuration file completed you can type only `sslb -b` to start SSLB with verbose mode, that command will log the output from SSLB in console. That will print something like that:
 
 ```
-sslb -b                                                                                                                                                               
+sslb -v
+
 2015/10/25 22:58:33 Start SSLB (Server)
 2015/10/25 22:58:33 Create worker pool with [1000]
 2015/10/25 22:58:33 Prepare to run server ...
@@ -97,13 +98,13 @@ sslb -b
 	
 ### Example (config.json)
 
-```
+```json
 {
     "general": {
         "maxProcs": 4,
-        "workerPoolSize": 10,
+        "workerPoolSize": 10
     },
-    
+
     "frontends" : [
         {
             "name" : "Front1",
@@ -111,7 +112,6 @@ sslb -b
             "port" : 9000,
             "route" : "/",
             "timeout" : 5000,
-            
             "backends" : [
                 {
                     "name" : "Back1",
@@ -136,7 +136,7 @@ sslb -b
 
 
 ## LICENSE
-Copyright (c) 2015, Eduardo Nunes Pereira
+Copyright (c) 2019, Eduardo Nunes Pereira
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
