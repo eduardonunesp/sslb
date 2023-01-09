@@ -26,4 +26,5 @@ config.json
 config.json.example
 Godeps/_workspace
 Godeps/Readme
+sslb
 vendor
