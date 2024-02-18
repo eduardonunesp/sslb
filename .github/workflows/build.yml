@@ -3,7 +3,7 @@ name: Deploy Images to GHCR
 on:
   push:
     branches:
-      - main
+      - master
 
 jobs:
   push-store-image:
